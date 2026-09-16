@@ -1,0 +1,27 @@
+
+_data={}
+_all_data={}
+
+def add_listener(index,fun_name,fun):
+	if (index not in _data.keys()):  
+		_data[index] = {}
+	d = _data[index];
+	d[fun_name] = fun;
+
+def add_all_listener(fun_name,fun):
+	_all_data[fun_name] = fun
+
+def trig_map(index,fun_name,args):
+	if(index in _data.keys()):
+		d = _data[index];
+		if(fun_name in d.keys()):
+			fun = d[fun_name]
+			return fun(args)
+		else:
+			return
+	elif(fun_name in _all_data.keys()):
+		fun = _all_data[fun_name]
+		return fun(args)
+	else:	
+		return
+		

@@ -36,6 +36,10 @@ Database/
 *.db
 *.sqlite
 *.sqlite3
+*.pyc
+*.vsidx
+*.wsuo
+*.iml
 
 # Local backups and temporary files
 *.bak

@@ -1,0 +1,55 @@
+# IDE and local agent state
+.vs/
+.superpowers/
+.idea/
+**/.vs/
+**/.idea/
+
+# Build, test, dependency, and generated output
+**/bin/
+**/obj/
+.artifacts/
+.build/
+.build-check/
+.diagnostics/
+outputs/
+packages/
+**/packages/
+
+# Runtime and deployment data
+Data/
+Database/
+**/Data/
+**/Database/
+
+# Release packages and generated binaries
+*.apk
+*.aab
+*.exe
+*.dll
+*.pdb
+*.zip
+*.7z
+*.rar
+*.nupkg
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Local backups and temporary files
+*.bak
+*.bak-*
+*.old
+*.orig
+*.tmp
+
+# Local service/login configuration containing deployment credentials
+145Client/app.config
+Server/App.config
+ServerTool/App.config
+Mir3.Droid/Assets/Data/Mir3.ini
+工具/黑龙授权文件生成/*.config
+
+# Keep NuGet package declarations even though the restored package cache is ignored
+!**/packages.config

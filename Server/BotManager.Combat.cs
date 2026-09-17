@@ -2562,7 +2562,17 @@ namespace Server.Envir
             if (chargeMagic == MagicType.None)
                 return false;
 
-            return TryCastBotMagic(player, dir, chargeMagic, player, player.CurrentLocation);
+            bool hadPreviousAttackAttempt = _botNextAttackAttemptTime.TryGetValue(player.ObjectID, out DateTime previousAttackAttempt);
+            bool castSucceeded = TryCastBotMagic(player, dir, chargeMagic, player, player.CurrentLocation);
+            if (!castSucceeded)
+            {
+                if (hadPreviousAttackAttempt)
+                    _botNextAttackAttemptTime[player.ObjectID] = previousAttackAttempt;
+                else
+                    _botNextAttackAttemptTime.Remove(player.ObjectID);
+            }
+
+            return castSucceeded;
         }
 
         /// <summary>

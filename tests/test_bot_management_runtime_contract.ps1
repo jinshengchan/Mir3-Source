@@ -25,6 +25,25 @@ $combat = Get-Content -Raw -Encoding UTF8 -LiteralPath $combatPath
 $support = Get-Content -Raw -Encoding UTF8 -LiteralPath $supportPath
 $seEnvir = Get-Content -Raw -Encoding UTF8 -LiteralPath $seEnvirPath
 
+$wizardCombatMethod = [regex]::Match($combat, '(?s)private static void ProcessBotWizardCombatAction\s*\(.*?(?=\r?\n\s*(?:private|public|protected|internal)\s+[^;\r\n]+\()').Value
+$wizardRangedAttackIndex = $wizardCombatMethod.IndexOf('TryProcessBotRangedCombatAction')
+$wizardImmediateThreatIndex = $wizardCombatMethod.IndexOf('TryRepositionBotFromImmediateRangedThreat')
+$wizardNoMagicFallbackIndex = $wizardCombatMethod.IndexOf('ProcessBotRangedNoMagicFallback')
+$script:Assertions++
+if ($wizardRangedAttackIndex -lt 0 -or $wizardImmediateThreatIndex -lt 0 -or $wizardNoMagicFallbackIndex -lt 0 -or $wizardRangedAttackIndex -ge $wizardImmediateThreatIndex -or $wizardImmediateThreatIndex -ge $wizardNoMagicFallbackIndex) {
+    throw 'FAIL: Wizard must try ranged attack before immediate-threat reposition, then use the no-magic fallback'
+}
+
+$taoistCombatMethod = [regex]::Match($combat, '(?s)private static void ProcessBotTaoistCombatAction\s*\(.*?(?=\r?\n\s*(?:private|public|protected|internal)\s+[^;\r\n]+\()').Value
+$taoistDirectAttackIndex = $taoistCombatMethod.IndexOf('TryProcessBotRangedCombatAction(player, target, dist, dir, directMagic)')
+$taoistOptionalPoisonIndex = $taoistCombatMethod.IndexOf('TryProcessBotRangedCombatAction(player, target, dist, dir, optionalPoison)')
+$taoistImmediateThreatIndex = $taoistCombatMethod.IndexOf('TryRepositionBotFromImmediateRangedThreat')
+$taoistNoMagicFallbackIndex = $taoistCombatMethod.IndexOf('ProcessBotRangedNoMagicFallback')
+$script:Assertions++
+if ($taoistDirectAttackIndex -lt 0 -or $taoistOptionalPoisonIndex -lt 0 -or $taoistImmediateThreatIndex -lt 0 -or $taoistNoMagicFallbackIndex -lt 0 -or $taoistDirectAttackIndex -ge $taoistOptionalPoisonIndex -or $taoistOptionalPoisonIndex -ge $taoistImmediateThreatIndex -or $taoistImmediateThreatIndex -ge $taoistNoMagicFallbackIndex) {
+    throw 'FAIL: Taoist must try direct and optional-poison attacks before immediate-threat reposition, then use the no-magic fallback'
+}
+
 $processBotCombat = [regex]::Match($combat, '(?s)private static void ProcessBotCombat\s*\(.*?(?=\r?\n\s*(?:private|public|protected|internal)\s+[^;\r\n]+\()').Value
 $step1Block = [regex]::Match($processBotCombat, '(?s)//[^\r\n]*Step 1\b[^\r\n]*\r?\n.*?(?=\r?\n\s*//[^\r\n]*Step 1b\b)').Value
 Assert-Contains $step1Block 'if\s*\(\s*player\.InSafeZone\s*&&\s*Config\.BotAutoLevel\s*&&\s*Config\.BotAutoMapSwitch\s*\)' 'safe-zone exit branch requires the player to be in a safe zone and both bot movement settings'

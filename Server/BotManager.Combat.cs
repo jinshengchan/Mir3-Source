@@ -2570,11 +2570,11 @@ namespace Server.Envir
         /// </summary>
         private static void ProcessBotWizardCombatAction(PlayerObject player, MapObject target, int dist, MirDirection dir, bool forcePhysicalFallback)
         {
-            if (TryRepositionBotFromImmediateRangedThreat(player, target))
-                return;
-
             int nearbyMobCount = BotSkillSelector.CountNearbyAttackableMonsters(player, player.CurrentLocation, 2);
             if (TryProcessBotRangedCombatAction(player, target, dist, dir, BotSkillSelector.GetWizardRangedMagic(player, target, nearbyMobCount)))
+                return;
+
+            if (TryRepositionBotFromImmediateRangedThreat(player, target))
                 return;
 
             ProcessBotRangedNoMagicFallback(player, target, dist, dir);
@@ -2585,9 +2585,6 @@ namespace Server.Envir
         /// </summary>
         private static void ProcessBotTaoistCombatAction(PlayerObject player, MapObject target, int dist, MirDirection dir, bool forcePhysicalFallback)
         {
-            if (TryRepositionBotFromImmediateRangedThreat(player, target))
-                return;
-
             // ── 计算周围可攻击怪物数量（用于判断是否使用群体技能）──────────────────
             int nearbyMobCount = BotSkillSelector.CountNearbyAttackableMonsters(player, player.CurrentLocation, 2);
 
@@ -2619,6 +2616,9 @@ namespace Server.Envir
 
             MagicType optionalPoison = BotSkillSelector.GetTaoistOptionalPoisonMagic(player, target, nearbyMobCount);
             if (TryProcessBotRangedCombatAction(player, target, dist, dir, optionalPoison))
+                return;
+
+            if (TryRepositionBotFromImmediateRangedThreat(player, target))
                 return;
 
             ProcessBotRangedNoMagicFallback(player, target, dist, dir);

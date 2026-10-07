@@ -6,6 +6,7 @@ import gzip
 import hashlib
 import json
 import pathlib
+import re
 import struct
 import zipfile
 
@@ -103,14 +104,46 @@ def inspect(name, image):
             raise ValueError(f'Unsupported property element {element:#x}')
         return type_name()
     properties = {}
+    property_maps = {}
+    ignored_properties = set()
+    ignore_constructors = set()
+    for definition in tables.TypeDef:
+        if str(definition.TypeName) == 'IgnorePropertyPacket':
+            ignore_constructors.update(id(method.row) for method in definition.MethodList)
+    for attribute in tables.CustomAttribute or []:
+        constructor = attribute.Type.row
+        owner = getattr(constructor, 'Class', None)
+        if id(constructor) in ignore_constructors or (owner and str(getattr(owner.row, 'TypeName', '')) == 'IgnorePropertyPacket'):
+            ignored_properties.add(id(attribute.Parent.row))
     for entry in tables.PropertyMap or []:
         parent = entry.Parent.row
-        if not str(parent.TypeNamespace).startswith('Library.Network.'):
-            continue
-        properties[(str(parent.TypeNamespace), str(parent.TypeName))] = [
+        property_maps[(str(parent.TypeNamespace), str(parent.TypeName))] = entry
+    def model_properties(key):
+        entry = property_maps.get(key)
+        if entry is None:
+            return []
+        return [
             {'name': str(prop.row.Name), 'signature': prop.row.Type.value.hex(),
              'type': decode_signature(prop.row.Type.value)} for prop in entry.PropertyList
+            if id(prop.row) not in ignored_properties
         ]
+    for key in property_maps:
+        if key[0].startswith('Library.Network.'):
+            properties[key] = model_properties(key)
+    # Packet properties can refer to wire models in Library (ClientControl,
+    # StartInformation, Stats, etc.). Inspect the complete reachable model graph.
+    pending = [prop['type'] for value in properties.values() for prop in value]
+    visited = {namespace + '.' + name for namespace, name in properties}
+    while pending:
+        for type_name in re.findall(r'Library\.[\w.`]+', pending.pop()):
+            if type_name in visited:
+                continue
+            visited.add(type_name)
+            namespace, model_name = type_name.rsplit('.', 1)
+            key = (namespace, model_name)
+            if key in property_maps:
+                properties[key] = model_properties(key)
+                pending.extend(prop['type'] for prop in properties[key])
     packets = []
     enums = {}
     constants = {id(entry.Parent.row): entry.Value.value.hex() for entry in tables.Constant or []}
@@ -160,7 +193,7 @@ def main():
             if actual is None or [(p['name'], p['type']) for p in properties] != [(p['name'], p['type']) for p in actual]:
                 raise ValueError('Serialized model differs from original APK: ' + name)
         for name in ('Library.LoginResult', 'Library.NewAccountResult', 'Library.ChangePasswordResult',
-                     'Library.DisconnectReason', 'Library.Platform'):
+                     'Library.DisconnectReason', 'Library.Platform', 'Library.StartGameResult'):
             if expected[0]['enums'].get(name) != reports[0]['enums'].get(name):
                 raise ValueError('Login enum differs from original APK: ' + name)
         print(f'::notice title=Original Android protocol compatibility::Verified {len(reports[0]["packets"])} packet IDs, property layouts and login result enums against original APK')
@@ -174,7 +207,7 @@ def main():
         # A workflow step accepts at most ten notice annotations. Keep the
         # downloadable report complete; publish only enums relevant to login.
         login_enums = {'LoginResult', 'NewAccountResult', 'ChangePasswordResult',
-                       'DisconnectReason', 'Platform', 'GameStage'}
+                       'DisconnectReason', 'Platform', 'GameStage', 'StartGameResult'}
         summaries = [{**report, 'enums': {name: values for name, values in report['enums'].items()
                       if name.rsplit('.', 1)[-1] in login_enums}} for report in reports]
         summary = json.dumps(summaries, ensure_ascii=True, separators=(',', ':')).encode()

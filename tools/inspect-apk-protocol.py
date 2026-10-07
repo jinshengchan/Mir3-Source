@@ -65,11 +65,51 @@ def images(apk):
 def inspect(name, image):
     pe = dnfile.dnPE(data=image, clr_lazy_load=True)
     tables = pe.net.mdtables
+    def decode_signature(signature):
+        cursor = 2  # PROPERTY calling convention followed by parameter count
+        def compressed():
+            nonlocal cursor
+            first = signature[cursor]
+            cursor += 1
+            if first < 128:
+                return first
+            size = 1 if first < 192 else 3
+            value = first & (63 if size == 1 else 31)
+            for _ in range(size):
+                value = (value << 8) | signature[cursor]
+                cursor += 1
+            return value
+        def type_name():
+            nonlocal cursor
+            element = signature[cursor]
+            cursor += 1
+            primitives = {2: 'System.Boolean', 3: 'System.Char', 4: 'System.SByte', 5: 'System.Byte',
+                          6: 'System.Int16', 7: 'System.UInt16', 8: 'System.Int32', 9: 'System.UInt32',
+                          10: 'System.Int64', 11: 'System.UInt64', 12: 'System.Single',
+                          13: 'System.Double', 14: 'System.String', 28: 'System.Object'}
+            if element in primitives:
+                return primitives[element]
+            if element in (17, 18):
+                token = compressed()
+                table = (tables.TypeDef, tables.TypeRef, tables.TypeSpec)[token & 3]
+                row = table.rows[(token >> 2) - 1]
+                return str(row.TypeNamespace) + '.' + str(row.TypeName)
+            if element == 21:
+                generic = type_name()
+                count = compressed()
+                return generic + '[' + ','.join(type_name() for _ in range(count)) + ']'
+            if element == 29:
+                return type_name() + '[]'
+            raise ValueError(f'Unsupported property element {element:#x}')
+        return type_name()
     properties = {}
     for entry in tables.PropertyMap or []:
         parent = entry.Parent.row
+        if not str(parent.TypeNamespace).startswith('Library.Network.'):
+            continue
         properties[(str(parent.TypeNamespace), str(parent.TypeName))] = [
-            {'name': str(prop.row.Name), 'signature': prop.row.Type.value.hex()} for prop in entry.PropertyList
+            {'name': str(prop.row.Name), 'signature': prop.row.Type.value.hex(),
+             'type': decode_signature(prop.row.Type.value)} for prop in entry.PropertyList
         ]
     packets = []
     for entry in tables.TypeDef:

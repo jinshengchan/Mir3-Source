@@ -134,8 +134,8 @@ identify database or network failure; its current error log is still useful.
 
 The working 1403 sample contains 489 packet subclasses; the previous bundled
 Android build contained 484. `Packet` assigns IDs by sorting these types, so
-missing classes changed login from ID 113 to 112, registration from 161 to 160,
-and login replies from 347 to 344. The phone log reported received packets as
+missing classes changed runtime IDs. Earlier reports quoted namespace-grouped
+indices, not the actual wire IDs; that inspection error is corrected below. The phone log reported received packets as
 `ClientPackets.Logout` with no handler; this was a protocol compatibility clue,
 not evidence that the server had received a valid login request.
 
@@ -154,8 +154,36 @@ Metadata token numbers and assembly hashes may differ between compilations;
 semantic field types and packet IDs must match. The artifact includes both
 `ORIGINAL-PROTOCOL.json` and `APK-PROTOCOL.json` for review.
 
-Local validation: Android Release build passed; the actual packaged APK matched
-all 489 original packet definitions and login enums; the previous 484-packet
-assembly was rejected by the same check; all 34 existing resource/account checks
-passed. These checks establish package compatibility, not successful login from
+Earlier validation checked all 489 packet definitions and their property layouts,
+but its namespace-grouped ID calculation did not match the runtime comparer.
+The previous 484-packet assembly was rejected, and all 34 existing resource/account
+checks passed; the ID claim is superseded by the runtime validation below. These checks establish package compatibility, not successful login from
 the user's phone. The deployed server is not accessible from this executor.
+
+
+The phone diagnostic at 17:52:05 logged a 14-byte
+`ClientPackets.RequestStartGame` with ID **415**. The original APK's runtime
+ordering assigns **416** to that request and **415** to the server reply. No
+start reply arrived; the remote socket closed at 17:52:10. Login succeeded
+because its client/server IDs, 250/251, happened to match.
+
+The legacy comparer orders general packets first, then sorts by simple type
+name across client/server namespaces. Equal client/server names compare as
+zero. .NET `List.Sort` is unstable: different metadata input order swapped
+42 pairs (84 IDs) despite identical class names and property layouts. The
+metadata reader now reproduces .NET introsort, checked against the real runtime
+on 68 test cases and against the phone's logged IDs. It rejects the diagnostic
+APK against the original table.
+
+For `ANDROID && BUNDLED_RESOURCE_TEST` only, `OriginalAndroidPacketOrder.cs`
+pins all 489 wire IDs to the working sample table (source assembly SHA256
+`0668a86de0adec777ec9c273de680822dfb4d12c4d8119628de7e1255cf42838`).
+It rejects missing or unknown packet types instead of silently shifting IDs.
+Other configurations retain the legacy protocol. The APK inspector reads this
+canonical table when present and compares it to the original runtime ordering.
+`tools/verify-runtime-packet-order.py` also compiles the real `Packet.cs` and
+canonical initializer against reverse-ordered packet fixtures: all 489 IDs must
+match the independent original report; the request's serialized ID and length,
+reply direction, reordered input and unknown-type rejection must pass. This
+check runs in CI before building the APK. Phone entry into a map still requires
+user testing; wire compatibility alone cannot prove server gameplay behavior.

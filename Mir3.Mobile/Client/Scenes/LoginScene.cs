@@ -172,7 +172,7 @@ namespace Client.Scenes
             {
                 Text = Config.VersionName + "." + Config.VersionCode
 #if BUNDLED_RESOURCE_TEST
-                    + "（进入诊断v1）"
+                    + "（协议编号修复）"
 #endif
                     ,
                 //ForeColour = Color.White,

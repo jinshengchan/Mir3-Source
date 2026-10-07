@@ -39,6 +39,7 @@ jobs:
           mkdir -p .build
           gdown 'https://drive.google.com/uc?id=1Fts3QP26o2YbJ08Pb99GNv6QiHv86D8S' -O .build/sample.apk
           python3 tools/inspect-apk-protocol.py .build/sample.apk --output .build/ORIGINAL-PROTOCOL.json
+          python3 tools/verify-runtime-packet-order.py .build/ORIGINAL-PROTOCOL.json
           python3 - <<'PY'
           import os, pathlib, shutil, zipfile
           source = pathlib.Path('.build/sample.apk')

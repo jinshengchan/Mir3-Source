@@ -57,6 +57,9 @@ namespace Library.Network
                 Packets.Add(type);
             }
 
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            OriginalAndroidPacketOrder.Apply(Packets);
+#else
             Packets.Sort((x1, x2) =>
             {
                 if (String.Compare(x1.Namespace, x2.Namespace, StringComparison.Ordinal) == 0)
@@ -70,6 +73,7 @@ namespace Library.Network
 
                 return String.Compare(x1.Name, x2.Name, StringComparison.Ordinal);
             });
+#endif
 
             #region 写入
 

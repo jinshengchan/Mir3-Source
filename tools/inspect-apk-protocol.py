@@ -241,7 +241,19 @@ def inspect(name, image):
                 str(field.row.Name): constants[id(field.row)] for field in entry.FieldList
                 if id(field.row) in constants
             }
-    runtime_packet_sort(packets)
+    wire_orders = [entry.Value.value.decode('utf-16-le') for entry in tables.Constant or []
+                   if str(getattr(entry.Parent.row, 'Name', '')) == 'WireOrderNames']
+    if wire_orders:
+        if len(wire_orders) != 1:
+            raise ValueError('Ambiguous canonical packet table')
+        names = wire_orders[0].splitlines()
+        actual_names = {p['namespace'] + '.' + p['name'] for p in packets}
+        if len(set(names)) != len(packets) or set(names) != actual_names:
+            raise ValueError('Canonical packet table differs from packet definitions')
+        ids = {name: index for index, name in enumerate(names)}
+        packets.sort(key=lambda p: ids[p['namespace'] + '.' + p['name']])
+    else:
+        runtime_packet_sort(packets)
     for packet_id, packet in enumerate(packets):
         packet['id'] = packet_id
     return {'assembly': name, 'sha256': hashlib.sha256(image).hexdigest(), 'packets': packets,

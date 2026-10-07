@@ -187,3 +187,24 @@ match the independent original report; the request's serialized ID and length,
 reply direction, reordered input and unknown-type rejection must pass. This
 check runs in CI before building the APK. Phone entry into a map still requires
 user testing; wire compatibility alone cannot prove server gameplay behavior.
+
+
+After entering the map, the phone showed UI/nameplates over a black scene until
+resources loaded, and intermittent frozen walking poses while terrain moved.
+`MapControl.CreateTexture` previously discarded every candidate frame if any
+visible library image was unavailable. With no previous texture this kept the
+map black; with a previous texture it could retain stale actor poses. The map
+now presents each rendered candidate, keeps retrying missing images, and tracks
+floor availability separately so missing actor/effect frames do not invalidate
+an already loaded floor. Missing images can appear progressively; this does not
+make unavailable server resources available or remove the initial decoding cost.
+The surface restore remains in `finally`; a render exception still preserves the
+previous texture rather than publishing the failed candidate.
+
+`UserObject` also now uses the independently computed `mir2Frame` for legacy
+armour/weapon images, instead of reusing the Mir3 frame index. The test APK adds
+at most 60 map-cache snapshots and 120 movement snapshots to
+`connection-debug.txt` and displays `画面刷新修复` on the login page. This lets the
+phone report actual animation frames and pending resources. Android compilation
+and protocol checks are available locally; actual visual behavior needs phone
+verification because this executor has no attached Android device.

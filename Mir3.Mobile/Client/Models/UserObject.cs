@@ -1540,8 +1540,22 @@ namespace Client.Models
             FrameIndex = frame;
 
             DrawFrame = FrameIndex + CurrentFrame.StartIndex + CurrentFrame.OffSet * (int)Direction;
-            Mir2DrawFrame = FrameIndex + Mir2CurrentFrame.StartIndex + Mir2CurrentFrame.OffSet * (int)Direction;
+            Mir2DrawFrame = mir2Frame + Mir2CurrentFrame.StartIndex + Mir2CurrentFrame.OffSet * (int)Direction;
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            if ((CurrentAction == MirAction.Moving || CurrentAction == MirAction.Pushed) &&
+                _animationDiagnosticCount < 120 && CEnvir.Now >= _nextAnimationDiagnostic)
+            {
+                _animationDiagnosticCount++;
+                _nextAnimationDiagnostic = CEnvir.Now.AddMilliseconds(250);
+                Mir3.Mobile.ConnectionDiagnostics.Record($"motion action={CurrentAction} animation={CurrentAnimation} elapsed={(CEnvir.Now - FrameStart).TotalMilliseconds:F0} frame={frame}/{CurrentFrame.FrameCount} mir2={mir2Frame}/{Mir2CurrentFrame.FrameCount} draw={DrawFrame} mir2Draw={Mir2DrawFrame} armour={ArmourFrame} weapon={WeaponFrame} location={CurrentLocation} smooth={Config.SmoothRendering}");
+            }
+#endif
         }
+
+#if ANDROID && BUNDLED_RESOURCE_TEST
+        private DateTime _nextAnimationDiagnostic;
+        private int _animationDiagnosticCount;
+#endif
 
         public void AddBuff(ClientBuffInfo buff)
         {

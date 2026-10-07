@@ -367,6 +367,7 @@ namespace Client.Scenes.Views
                 DXManager.ControlList.Add(this);
 
             Surface previous = DXManager.CurrentSurface;
+            bool floorIncomplete = true;
             bool incomplete = true;
             MirLibrary.BeginMapCacheRefresh();
             try
@@ -374,6 +375,10 @@ namespace Client.Scenes.Views
                 DXManager.SetSurface(_candidateControlSurface);
                 DXManager.Device.Clear(ClearFlags.Target, BackColour, 0, 0);
                 FLayer.CheckTexture();
+                // Track floor resources separately: a missing actor frame must
+                // not force the entire floor texture to be rendered again.
+                floorIncomplete = MirLibrary.EndMapCacheRefresh();
+                MirLibrary.BeginMapCacheRefresh();
                 OnClearTexture();
             }
             finally
@@ -382,15 +387,12 @@ namespace Client.Scenes.Views
                 incomplete = MirLibrary.EndMapCacheRefresh();
             }
 
-            if (incomplete)
-            {
+            if (floorIncomplete)
                 FLayer.TextureValid = false;
-                _mapCacheRefreshPending = true;
-                TextureValid = ControlTexture != null && !ControlTexture.Disposed;
-                return;
-            }
 
-            if (!incomplete)
+            // Publish the current frame even while some resources are loading.
+            // Otherwise one missing sprite freezes every actor, and the first
+            // scene remains black until all visible resources are available.
             {
                 Texture oldControlTexture = ControlTexture;
                 Surface oldControlSurface = ControlSurface;
@@ -402,12 +404,25 @@ namespace Client.Scenes.Views
                 _candidateTextureSize = Size.Empty;
                 _candidateTextureWidth = 0;
                 _candidateTextureHeight = 0;
-                _mapCacheRefreshPending = false;
+                _mapCacheRefreshPending = floorIncomplete || incomplete;
                 TextureValid = true;
                 DisposeMapTexture(oldControlTexture, oldControlSurface);
                 ExpireTime = CEnvir.Now + Config.CacheDuration;
             }
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            if (_cacheDiagnosticCount < 60 && CEnvir.Now >= _nextCacheDiagnostic)
+            {
+                _cacheDiagnosticCount++;
+                _nextCacheDiagnostic = CEnvir.Now.AddSeconds(2);
+                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame}");
+            }
+#endif
         }
+
+#if ANDROID && BUNDLED_RESOURCE_TEST
+        private DateTime _nextCacheDiagnostic;
+        private int _cacheDiagnosticCount;
+#endif
 
         private void DisposeMapTexture(Texture texture, Surface surface)
         {

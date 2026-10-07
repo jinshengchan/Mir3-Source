@@ -108,3 +108,32 @@ Android 登录页显示当前游戏连接状态、地址、重试和连接失败
 `Bundled ZIP checksum mismatch` 发生在基础 ZIP 已复制、长度符合清单后，表示整包 MD5 不符，不能直接判断是下载截断。原始样本基础包 DataAdd.zip 长度为 1,123,514,838 字节，MD5 为 `ea9cba07c8e11cc5b9892b3bdaf30bb9`。签名验证、外层 ZIP CRC 校验和内置基础包 MD5 校验是不同的检查。手机上修改后的 APK 需要单独比对，不能用未修改的构建结果代替验证。
 
 CI 在构建前校验真实基础包与 152 个补丁，在构建后再次核对 APK 内基础 ZIP 的 MD5 和版本清单，附件包含 BUNDLED-INTEGRITY.json、实际 APK 元数据和 SHA-256。此前构建虽检查了 ZIP CRC，未在 CI 对下载到的真实资源做这项清单比对；本次补上该检查。校验失败时停止发布附件，保留原校验要求。
+# Original Android protocol compatibility
+
+The working 1403 sample contains 489 packet subclasses; the previous bundled
+Android build contained 484. `Packet` assigns IDs by sorting these types, so
+missing classes changed login from ID 113 to 112, registration from 161 to 160,
+and login replies from 347 to 344. The phone log reported received packets as
+`ClientPackets.Logout` with no handler; this was a protocol compatibility clue,
+not evidence that the server had received a valid login request.
+
+`OriginalAndroidPackets.cs` restores the five definitions found in the sample,
+and `MarriageTeleport` restores its three sample properties. Both changes are
+limited to `ANDROID && BUNDLED_RESOURCE_TEST`, the build intended for this
+existing server. Other client and server build configurations keep their current
+protocol. Changing this gate requires choosing which deployed server to target.
+
+`tools/inspect-apk-protocol.py` reads managed metadata from v1 assembly blobs or
+v2/v3 ELF assembly stores without executing APK code. It requires `dnfile==0.18.0`
+and `lz4==4.4.5`. The build workflow reads the original APK before extracting its
+resources, then compares the signed result's complete packet table, ordered
+property names/types, network model layouts, and login-related enum values.
+Metadata token numbers and assembly hashes may differ between compilations;
+semantic field types and packet IDs must match. The artifact includes both
+`ORIGINAL-PROTOCOL.json` and `APK-PROTOCOL.json` for review.
+
+Local validation: Android Release build passed; the actual packaged APK matched
+all 489 original packet definitions and login enums; the previous 484-packet
+assembly was rejected by the same check; all 34 existing resource/account checks
+passed. These checks establish package compatibility, not successful login from
+the user's phone. The deployed server is not accessible from this executor.

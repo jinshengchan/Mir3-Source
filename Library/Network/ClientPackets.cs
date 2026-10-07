@@ -1702,7 +1702,14 @@ namespace Library.Network.ClientPackets  //网络客户端数据包库
     /// <summary>
     /// 结婚传送
     /// </summary>
-    public sealed class MarriageTeleport : Packet { }
+    public sealed class MarriageTeleport : Packet
+    {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+        public bool TeamHook { get; set; }
+        public string TeamLeaderName { get; set; }
+        public int TeamHookMapIndex { get; set; }
+#endif
+    }
     /// <summary>
     /// 指定玩家增加到黑名单
     /// </summary>
@@ -2300,4 +2307,3 @@ namespace Library.Network.ClientPackets  //网络客户端数据包库
         public long Count { get; set; }
     }
 }
-

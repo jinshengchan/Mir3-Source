@@ -138,6 +138,7 @@ def main():
     parser.add_argument('apk')
     parser.add_argument('--output', required=True)
     parser.add_argument('--annotations', action='store_true')
+    parser.add_argument('--compare', help='Require packet IDs and layouts to match this original report')
     args = parser.parse_args()
     reports = [inspect(name, image) for name, image in images(args.apk)]
     reports = [report for report in reports if report['packets']]
@@ -145,6 +146,24 @@ def main():
         raise ValueError('No packet definitions found')
     payload = json.dumps(reports, ensure_ascii=True, separators=(',', ':')).encode()
     pathlib.Path(args.output).write_bytes(payload)
+    if args.compare:
+        expected = json.loads(pathlib.Path(args.compare).read_bytes())
+        if len(expected) != 1 or len(reports) != 1:
+            raise ValueError('Compatibility check requires exactly one packet assembly')
+        def shape(packet):
+            return (packet['id'], packet['namespace'], packet['name'],
+                    [(prop['name'], prop['type']) for prop in packet['properties']])
+        if [shape(p) for p in expected[0]['packets']] != [shape(p) for p in reports[0]['packets']]:
+            raise ValueError('Packet IDs or serialized properties differ from original APK')
+        for name, properties in expected[0].get('models', {}).items():
+            actual = reports[0]['models'].get(name)
+            if actual is None or [(p['name'], p['type']) for p in properties] != [(p['name'], p['type']) for p in actual]:
+                raise ValueError('Serialized model differs from original APK: ' + name)
+        for name in ('Library.LoginResult', 'Library.NewAccountResult', 'Library.ChangePasswordResult',
+                     'Library.DisconnectReason', 'Library.Platform'):
+            if expected[0]['enums'].get(name) != reports[0]['enums'].get(name):
+                raise ValueError('Login enum differs from original APK: ' + name)
+        print(f'::notice title=Original Android protocol compatibility::Verified {len(reports[0]["packets"])} packet IDs, property layouts and login result enums against original APK')
     for report in reports:
         print(report['assembly'], 'packet count:', len(report['packets']))
         for packet in report['packets']:

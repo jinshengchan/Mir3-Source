@@ -35,9 +35,10 @@ jobs:
         run: dotnet run --project tests/BundledResources.Tests/BundledResources.Tests.csproj
       - name: Get authorized sample resources
         run: |
-          python3 -m pip install 'gdown==5.2.0'
+          python3 -m pip install 'gdown==5.2.0' 'dnfile==0.18.0' 'lz4==4.4.5'
           mkdir -p .build
           gdown 'https://drive.google.com/uc?id=1Fts3QP26o2YbJ08Pb99GNv6QiHv86D8S' -O .build/sample.apk
+          python3 tools/inspect-apk-protocol.py .build/sample.apk --output .build/ORIGINAL-PROTOCOL.json
           python3 - <<'PY'
           import os, pathlib, shutil, zipfile
           source = pathlib.Path('.build/sample.apk')
@@ -100,6 +101,9 @@ jobs:
           python3 tools/verify-bundled-resources.py "$BUNDLE_DIR" \
             --apk Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk \
             --report .build/BUNDLED-INTEGRITY.json
+          python3 tools/inspect-apk-protocol.py \
+            Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk \
+            --output .build/APK-PROTOCOL.json --compare .build/ORIGINAL-PROTOCOL.json
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-METADATA.txt
           python3 - <<'PY'
@@ -116,6 +120,8 @@ jobs:
             .build/APK-SHA256.txt
             .build/APK-METADATA.txt
             .build/BUNDLED-INTEGRITY.json
+            .build/ORIGINAL-PROTOCOL.json
+            .build/APK-PROTOCOL.json
           if-no-files-found: error
           include-hidden-files: true
           compression-level: 0

@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AccountRequestGate.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)OriginalAndroidPackets.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Controls\DXAnimatedControl.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Controls\DXButton.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Controls\DXCheckBox.cs" />

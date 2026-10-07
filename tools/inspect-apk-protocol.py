@@ -112,16 +112,25 @@ def inspect(name, image):
              'type': decode_signature(prop.row.Type.value)} for prop in entry.PropertyList
         ]
     packets = []
+    enums = {}
+    constants = {id(entry.Parent.row): entry.Value.value.hex() for entry in tables.Constant or []}
     for entry in tables.TypeDef:
         namespace, type_name = str(entry.TypeNamespace), str(entry.TypeName)
         base = entry.Extends.row if entry.Extends else None
         if base and str(getattr(base, 'TypeName', '')) == 'Packet' and namespace.startswith('Library.Network.'):
             packets.append({'namespace': namespace, 'name': type_name,
                             'properties': properties.get((namespace, type_name), [])})
+        if base and str(getattr(base, 'TypeName', '')) == 'Enum' and namespace.startswith('Library'):
+            enums[namespace + '.' + type_name] = {
+                str(field.row.Name): constants[id(field.row)] for field in entry.FieldList
+                if id(field.row) in constants
+            }
     packets.sort(key=lambda p: (p['namespace'] != 'Library.Network.GeneralPackets', p['namespace'], p['name']))
     for packet_id, packet in enumerate(packets):
         packet['id'] = packet_id
-    return {'assembly': name, 'sha256': hashlib.sha256(image).hexdigest(), 'packets': packets}
+    return {'assembly': name, 'sha256': hashlib.sha256(image).hexdigest(), 'packets': packets,
+            'models': {namespace + '.' + name: value for (namespace, name), value in properties.items()},
+            'enums': enums}
 
 
 def main():

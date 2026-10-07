@@ -110,6 +110,17 @@ Android 登录页显示当前游戏连接状态、地址、重试和连接失败
 CI 在构建前校验真实基础包与 152 个补丁，在构建后再次核对 APK 内基础 ZIP 的 MD5 和版本清单，附件包含 BUNDLED-INTEGRITY.json、实际 APK 元数据和 SHA-256。此前构建虽检查了 ZIP CRC，未在 CI 对下载到的真实资源做这项清单比对；本次补上该检查。校验失败时停止发布附件，保留原校验要求。
 # Original Android protocol compatibility
 
+After login began working, starting a character exposed a second wire-layout
+difference: the sample's `Library.ClientControl` includes `OnTeamHookTab` between
+`OnAutoHookTab` and `OnBrightBox`. The previous check only inspected models in
+`Library.Network`, so it did not cover this nested `Library` object. The test
+build restores that byte in the original position. The metadata reader now
+recursively follows packet property types to reachable `Library` models, skips
+`IgnorePropertyPacket` properties, and checks `StartGameResult` as well. The
+pre-fix assembly has all 489 packet types but fails this expanded comparison on
+`Library.ClientControl`. A phone's generic disconnect message alone does not
+identify database or network failure; its current error log is still useful.
+
 The working 1403 sample contains 489 packet subclasses; the previous bundled
 Android build contained 484. `Packet` assigns IDs by sorting these types, so
 missing classes changed login from ID 113 to 112, registration from 161 to 160,

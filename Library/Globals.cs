@@ -750,6 +750,10 @@ namespace Library
         /// 是否显示挂机页
         /// </summary>
         public bool OnAutoHookTab { get; set; }
+#if ANDROID && BUNDLED_RESOURCE_TEST
+        // Original 1403 wire layout: this byte precedes OnBrightBox.
+        public bool OnTeamHookTab { get; set; }
+#endif
         /// <summary>
         /// 是否免蜡
         /// </summary>
@@ -3268,5 +3272,4 @@ namespace Library
         public decimal Myself { get; set; }
     }
 }
-
 

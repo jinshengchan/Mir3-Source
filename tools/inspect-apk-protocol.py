@@ -261,13 +261,83 @@ def inspect(name, image):
             'enums': enums}
 
 
+def inspect_resource_readers(name, image):
+    from dncil.cil.body import CilMethodBody
+    from dncil.cil.body.reader import CilMethodBodyReaderBytes
+    pe = dnfile.dnPE(data=image, clr_lazy_load=True)
+    tables = pe.net.mdtables
+    owners = {}
+    type_names = {id(t): str(t.TypeNamespace) + '.' + str(t.TypeName) for t in tables.TypeDef}
+    for t in tables.TypeDef:
+        for method in t.MethodList:
+            owners[id(method.row)] = type_names[id(t)]
+        for field in t.FieldList:
+            owners[id(field.row)] = type_names[id(t)]
+    def resolve(token):
+        table_id, index = token >> 24, token & 0xffffff
+        if table_id == 0x70:
+            return '<string>'  # Never publish arbitrary embedded string values.
+        table = {1: tables.TypeRef, 2: tables.TypeDef, 4: tables.Field,
+                 6: tables.MethodDef, 10: tables.MemberRef, 27: tables.TypeSpec,
+                 43: tables.MethodSpec}.get(table_id)
+        if not table or index < 1 or index > len(table.rows):
+            return hex(token)
+        row = table.rows[index - 1]
+        if table_id in (1, 2):
+            return str(row.TypeNamespace) + '.' + str(row.TypeName)
+        if table_id == 43:
+            target = row.Method.row
+            return owners.get(id(target), '') + '.' + str(getattr(target, 'Name', ''))
+        if table_id == 10:
+            parent = row.Class.row
+            return str(getattr(parent, 'TypeNamespace', '')) + '.' + str(getattr(parent, 'TypeName', '')) + '.' + str(row.Name)
+        return owners.get(id(row), '') + '.' + str(getattr(row, 'Name', ''))
+    results = {}
+    selected = {'MirImage': {'.ctor', 'CreateImage', 'ImageSetData', 'ShadowSetData', 'OverlaySetData', 'Decompress'},
+                'MirLibrary': {'ReadLibrary'}, 'MicroLibraryImage': {'.ctor'},
+                'MicroLibraryHeader': {'.ctor'}}
+    for t in tables.TypeDef:
+        short = str(t.TypeName)
+        for method in t.MethodList:
+            m = method.row
+            if not m.Rva:
+                continue
+            if not (str(m.Name) in selected.get(short, set()) or
+                    ('GetImageAsync' in short and str(m.Name) == 'MoveNext')):
+                continue
+            body = CilMethodBody(CilMethodBodyReaderBytes(pe.get_data(m.Rva)))
+            instructions = []
+            for instruction in body.instructions:
+                operand = instruction.operand
+                if hasattr(operand, 'value'):
+                    operand = resolve(operand.value)
+                elif operand is not None:
+                    operand = str(operand)
+                instructions.append([instruction.offset, str(instruction.opcode), operand])
+            results[type_names[id(t)] + '.' + str(m.Name)] = instructions
+    return {'assembly': name, 'sha256': hashlib.sha256(image).hexdigest(), 'methods': results}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('apk')
     parser.add_argument('--output', required=True)
     parser.add_argument('--annotations', action='store_true')
     parser.add_argument('--compare', help='Require packet IDs and layouts to match this original report')
+    parser.add_argument('--resources', action='store_true', help='Inspect resource reader method IL instead of packets')
     args = parser.parse_args()
+    if args.resources:
+        reports = [inspect_resource_readers(name, image) for name, image in images(args.apk)]
+        reports = [r for r in reports if r['methods']]
+        payload = json.dumps(reports, separators=(',', ':')).encode()
+        pathlib.Path(args.output).write_bytes(payload)
+        encoded = base64.b64encode(gzip.compress(payload, mtime=0)).decode()
+        chunks = [encoded[i:i + 3800] for i in range(0, len(encoded), 3800)]
+        if len(chunks) > 10:
+            raise ValueError('Resource reader report exceeds annotation limit')
+        for index, chunk in enumerate(chunks):
+            print(f'::notice title=Resource readers {index + 1}/{len(chunks)}::{chunk}')
+        return
     reports = [inspect(name, image) for name, image in images(args.apk)]
     reports = [report for report in reports if report['packets']]
     if not reports:

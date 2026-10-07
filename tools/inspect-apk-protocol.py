@@ -104,7 +104,8 @@ def main():
                       ', '.join(prop['name'] for prop in packet['properties']))
     if args.annotations:
         encoded = base64.b64encode(gzip.compress(payload, mtime=0)).decode()
-        chunks = [encoded[i:i + 6000] for i in range(0, len(encoded), 6000)]
+        # GitHub truncates individual annotation messages at 4096 characters.
+        chunks = [encoded[i:i + 3000] for i in range(0, len(encoded), 3000)]
         for index, chunk in enumerate(chunks):
             print(f'::notice title=Original protocol {index + 1}/{len(chunks)}::{chunk}')
 

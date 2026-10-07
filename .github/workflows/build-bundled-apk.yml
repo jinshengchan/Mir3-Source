@@ -60,6 +60,8 @@ jobs:
           if count != 156:
               raise ValueError('Sample resource layout changed; review before building')
           PY
+      - name: Verify actual source resource checksums
+        run: python3 tools/verify-bundled-resources.py "$BUNDLE_DIR"
       - name: Set test APK version
         run: |
           python3 - <<'PYCODE'
@@ -92,6 +94,9 @@ jobs:
               assert package.testzip() is None
           print('Verified APK size:', apk.stat().st_size)
           PY
+          python3 tools/verify-bundled-resources.py "$BUNDLE_DIR" \
+            --apk Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk \
+            --report .build/BUNDLED-INTEGRITY.json
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-METADATA.txt
           python3 - <<'PY'
@@ -107,6 +112,8 @@ jobs:
             Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
             .build/APK-SHA256.txt
             .build/APK-METADATA.txt
+            .build/BUNDLED-INTEGRITY.json
           if-no-files-found: error
+          include-hidden-files: true
           compression-level: 0
           retention-days: 1

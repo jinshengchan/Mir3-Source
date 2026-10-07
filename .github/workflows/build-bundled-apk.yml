@@ -60,13 +60,24 @@ jobs:
           if count != 156:
               raise ValueError('Sample resource layout changed; review before building')
           PY
+      - name: Set test APK version
+        run: |
+          python3 - <<'PYCODE'
+          import xml.etree.ElementTree as ET
+          ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
+          path = 'Mir3.Droid/AndroidManifest.xml'
+          tree = ET.parse(path)
+          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionCode', '30')
+          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionName', '1.2.5-test3')
+          tree.write(path, encoding='utf-8', xml_declaration=True)
+          PYCODE
       - name: Build arm64 test APK
         run: |
           bash tools/build-bundled-apk.sh "$BUNDLE_DIR" \
             -p:AndroidSdkDirectory="$ANDROID_HOME" \
             -p:JavaSdkDirectory="$JAVA_HOME" \
             -p:RuntimeIdentifier=android-arm64 \
-            -p:BundledResourceTestBuild=true -p:ApplicationVersion=2 \
+            -p:BundledResourceTestBuild=true \
             -p:RunAOTCompilation=False -p:AotAssemblies=False \
             -p:AndroidEnableProfiledAot=False -p:PublishTrimmed=False
       - name: Verify package and signature
@@ -82,6 +93,12 @@ jobs:
           print('Verified APK size:', apk.stat().st_size)
           PY
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-METADATA.txt
+          python3 - <<'PY'
+          import pathlib
+          metadata = pathlib.Path('.build/APK-METADATA.txt').read_text()
+          assert "versionCode='30'" in metadata and "versionName='1.2.5-test3'" in metadata
+          PY
           sha256sum Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
@@ -89,6 +106,7 @@ jobs:
           path: |
             Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
             .build/APK-SHA256.txt
+            .build/APK-METADATA.txt
           if-no-files-found: error
           compression-level: 0
           retention-days: 1

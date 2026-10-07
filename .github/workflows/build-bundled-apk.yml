@@ -3,6 +3,9 @@ name: Build bundled Android APK
 on:
   push:
     branches: [codex/bundled-apk-delivery]
+    paths-ignore:
+      - tools/inspect-apk-protocol.py
+      - .github/workflows/inspect-original-protocol.yml
   workflow_dispatch:
 
 permissions:

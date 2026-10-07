@@ -1,0 +1,29 @@
+name: Inspect original Android protocol
+on:
+  push:
+    branches: [codex/bundled-apk-delivery]
+    paths:
+      - tools/inspect-apk-protocol.py
+      - .github/workflows/inspect-original-protocol.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install metadata readers
+        run: python3 -m pip install 'gdown==5.2.0' 'dnfile==0.18.0' 'lz4==4.4.5'
+      - name: Download authorized original APK and inspect protocol
+        run: |
+          mkdir -p .build
+          gdown 'https://drive.google.com/uc?id=1Fts3QP26o2YbJ08Pb99GNv6QiHv86D8S' -O .build/sample.apk
+          python3 tools/inspect-apk-protocol.py .build/sample.apk --output .build/ORIGINAL-PROTOCOL.json --annotations
+      - uses: actions/upload-artifact@v4
+        with:
+          name: original-android-protocol
+          path: .build/ORIGINAL-PROTOCOL.json
+          include-hidden-files: true
+          retention-days: 3

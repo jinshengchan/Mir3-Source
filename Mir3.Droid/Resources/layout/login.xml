@@ -56,6 +56,14 @@
 				android:layout_marginTop="10dip"
 				android:contentDescription="@string/image" />
 		</LinearLayout>
+        <TextView
+            android:id="@+id/login_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:text="正在连接游戏服务器..." />
 		<LinearLayout
 			android:id="@+id/content"
 			android:layout_width="550dip"

@@ -36,7 +36,7 @@ namespace Mir3.Droid
                     CheckSum = CEnvir.C,
                 };
 
-                CEnvir.Enqueue(packet);
+                SubmitAccountRequest(packet);
             }
             else
             {
@@ -58,7 +58,7 @@ namespace Mir3.Droid
                     CheckSum = CEnvir.C,
                 };
 
-                CEnvir.Enqueue(packet);
+                SubmitAccountRequest(packet);
             }
 
         }

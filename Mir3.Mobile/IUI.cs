@@ -36,6 +36,7 @@ namespace Mir3.Mobile
         /// 加载登录界面
         /// </summary>
         void InitLogin();
+        void SetLoginStatus(string status);
 #endif
         /// <summary>
         /// 提示消息

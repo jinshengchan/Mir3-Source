@@ -8,48 +8,32 @@ namespace Mir3.Droid
     public partial class MainActivity
     {
         #region prop
+        string _creatingAccount = "", _creatingPassword = "";
         public string CAccount
         {
-            get
-            {
-                if (_newAccount == null)
-                {
-                    return "";
-                }
-                var acc = _newAccount.FindViewById<EditText>(Resource.Id.c_acc);
-                return acc.Text;
-            }
+            get => _creatingAccount;
             set
             {
-                if (_newAccount == null)
+                _creatingAccount = value ?? "";
+                BeginInvoke(() =>
                 {
-                    return;
-                }
-                var acc = _newAccount.FindViewById<EditText>(Resource.Id.c_acc);
-                acc.Text = value;
+                    var input = _newAccount?.FindViewById<EditText>(Resource.Id.c_acc);
+                    if (input != null) input.Text = _creatingAccount;
+                });
             }
         }
 
         public string CPwd
         {
-            get
-            {
-                if (_newAccount == null)
-                {
-                    return "";
-                }
-                var acc = _newAccount.FindViewById<EditText>(Resource.Id.c_pwd);
-                return acc.Text;
-            }
+            get => _creatingPassword;
             set
             {
-
-                if (_newAccount == null)
+                _creatingPassword = value ?? "";
+                BeginInvoke(() =>
                 {
-                    return;
-                }
-                var acc = _newAccount.FindViewById<EditText>(Resource.Id.c_pwd);
-                acc.Text = value;
+                    var input = _newAccount?.FindViewById<EditText>(Resource.Id.c_pwd);
+                    if (input != null) input.Text = _creatingPassword;
+                });
             }
         }
         #endregion
@@ -60,6 +44,9 @@ namespace Mir3.Droid
         {
             _currentWindow = GetWindow(Resource.Layout.new_account);
             _newAccount = _currentWindow.ContentView;
+            _creatingAccount = _creatingPassword = "";
+            _newAccount.FindViewById<EditText>(Resource.Id.c_acc).TextChanged += (sender, args) => _creatingAccount = ((EditText)sender).Text ?? "";
+            _newAccount.FindViewById<EditText>(Resource.Id.c_pwd).TextChanged += (sender, args) => _creatingPassword = ((EditText)sender).Text ?? "";
             var create = _newAccount.FindViewById<ImageButton>(Resource.Id.creat_btn);
             create.Click -= Create_Click;
             create.Click += Create_Click;
@@ -77,6 +64,17 @@ namespace Mir3.Droid
         private void Create_Click(object sender, EventArgs e)
         {
             if (_newAccount == null) return;
+            var confirmation = _newAccount.FindViewById<EditText>(Resource.Id.c_pwd_confirm);
+            if (string.IsNullOrWhiteSpace(CAccount) || string.IsNullOrEmpty(CPwd))
+            {
+                ShowMsg("请输入账号和密码。");
+                return;
+            }
+            if (CPwd != confirmation.Text)
+            {
+                ShowMsg("两次输入的密码不一致。");
+                return;
+            }
             //var birthday = _newAccount.FindViewById<EditText>(Resource.Id.c_birthday);
 
             var inviteCode = _newAccount.FindViewById<EditText>(Resource.Id.c_invite_code);
@@ -101,7 +99,7 @@ namespace Mir3.Droid
                 CheckSum = CEnvir.C,
             };
 
-            CEnvir.Enqueue(packet);
+            SubmitAccountRequest(packet);
         }
 
 

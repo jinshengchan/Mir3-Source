@@ -114,6 +114,10 @@ namespace Client.Envir
                 if (p.Reason == DisconnectReason.WrongVersion || p.Reason == DisconnectReason.WrongClientSystemDBVersion)
                 {
                     CEnvir.WrongVersion = true;
+                    string message = p.Reason == DisconnectReason.WrongVersion ?
+                        "服务器拒绝连接：客户端版本校验错误。" : "服务器拒绝连接：客户端数据库校验错误。";
+                    scene.ReportConnectionFailure(message);
+                    scene.ShowMsg(message);
 
                     if (p.Reason == DisconnectReason.WrongVersion)
                         DXMessageBox.Show("与服务器断开连接\n原因：客户端版本校验错误".Lang(), "已断开连接".Lang(), DialogAction.Close).Modal = false;
@@ -631,6 +635,7 @@ namespace Client.Envir
                     login.ShowMsg("账号不存在".Lang());
                     break;
                 case LoginResult.AccountNotActivated:
+                    login.ShowMsg("账号尚未激活，请联系管理员或完成激活。".Lang());
                     //login.ShowActivationBox(login.LoginBox);
                     break;
                 case LoginResult.WrongPassword:

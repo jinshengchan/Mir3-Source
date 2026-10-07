@@ -9,6 +9,7 @@
     <Import_RootNamespace>Mir3.Mobile</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AccountRequestGate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Controls\DXAnimatedControl.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Controls\DXButton.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Controls\DXCheckBox.cs" />

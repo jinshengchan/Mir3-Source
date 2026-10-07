@@ -80,6 +80,9 @@ namespace Client.Scenes
         {
             ConnectionAttemptChanged?.Invoke(this, EventArgs.Empty);
 
+#if ANDROID
+            NativeUI.ShowLayout = true;
+#else
             //由于第一次连接拿不到国际化，所以这里只判断本地的配置文件，除了中文，其他默认英文
             string message = Config.Language == "SimplifiedChinese" ? $"正在尝试连接到服务器.\n重试:{ConnectionAttempt}" : $"Attempting to connect to the server.\nAttempt:{ConnectionAttempt}";
             if (ConnectionBox == null)
@@ -102,6 +105,7 @@ namespace Client.Scenes
             }
             else
                 ConnectionBox.Label.Text = message;
+#endif
         }
 
         #endregion
@@ -118,6 +122,10 @@ namespace Client.Scenes
         public ActivationDialog ActivationBox;
         public RequestActivationKeyDialog RequestActivationBox;
         public RankingDialog RankingBox;
+
+        private string ConnectionFailure;
+        private string LastNativeStatus;
+        public void ReportConnectionFailure(string message) => ConnectionFailure = message;
 
         private TcpClient ConnectingClient;
         private DateTime ConnectionTime;
@@ -162,7 +170,11 @@ namespace Client.Scenes
 
             DXLabel version = new DXLabel()
             {
-                Text = Config.VersionName + "." + Config.VersionCode,
+                Text = Config.VersionName + "." + Config.VersionCode
+#if BUNDLED_RESOURCE_TEST
+                    + "（连接修复测试）"
+#endif
+                    ,
                 //ForeColour = Color.White,
                 Parent = background,
                 Location = new Point(10, background.Size.Height - 30),
@@ -257,8 +269,19 @@ namespace Client.Scenes
         public override void Process()
         {
             base.Process();
+#if ANDROID
+            string status = CEnvir.WrongVersion ? (ConnectionFailure ?? "客户端版本或数据库校验失败。") :
+                CEnvir.Connection?.ServerConnected == true ? (CEnvir.Loaded ? "游戏服务器已连接，可以登录。" : "正在加载服务器信息...") :
+                ConnectionFailure ?? $"正在连接 {ServerIP}:{ServerPort}，尝试 {ConnectionAttempt}";
+            if (status != LastNativeStatus)
+            {
+                LastNativeStatus = status;
+                NativeUI.SetLoginStatus(status);
+            }
+#endif
             if (CEnvir.Connection != null && !CEnvir.Loaded)
             {
+#if !ANDROID
                 if (ConnectionBox == null)
                 {
                     ConnectionBox = new DXMessageBox("加载客户端信息...\n请等待...".Lang(), "加载中".Lang(), DXMessageBoxButtons.Cancel);
@@ -277,6 +300,7 @@ namespace Client.Scenes
                 else
                     ConnectionBox.Label.Text = "加载客户端信息...\n请等待...".Lang();
 
+#endif
                 return;
             }
             Loaded = CEnvir.Loaded;
@@ -338,11 +362,14 @@ namespace Client.Scenes
 
                 //    return;
                 //}
+                ConnectionFailure = null;
                 ConnectingClient.SendTimeout = (int)Config.TimeOutDuration.TotalMilliseconds;
                 ConnectingClient.BeginConnect(ServerIP, ServerPort, Connecting, ConnectingClient);
             }
-            catch
+            catch (Exception ex)
             {
+                ConnectionFailure = $"连接 {ServerIP}:{ServerPort} 失败: {ex.Message}";
+                CEnvir.SaveError(ex.ToString());
                 //MessageBox.Show("连接失败".Lang());
             }
         }
@@ -357,7 +384,6 @@ namespace Client.Scenes
 
                 if (client != ConnectingClient)
                 {
-                    ConnectingClient = null;
                     client.Close();
                     return;
                 }
@@ -365,6 +391,7 @@ namespace Client.Scenes
                 ConnectionTime = CEnvir.Now.AddSeconds(5);
                 ConnectingClient = null;
 
+                ConnectionFailure = null;
                 CEnvir.Connection = new CConnection(client);
             }
             catch (Exception ex)
@@ -373,6 +400,8 @@ namespace Client.Scenes
                 //{
                 //    SentrySdk.CaptureException(ex);
                 //}
+                if (result.AsyncState == ConnectingClient)
+                    ConnectionFailure = $"连接 {ServerIP}:{ServerPort} 失败: {ex.Message}";
                 CEnvir.SaveError(ex.ToString());
             }
         }

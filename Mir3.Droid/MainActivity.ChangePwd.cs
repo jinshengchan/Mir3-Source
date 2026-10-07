@@ -49,7 +49,7 @@ namespace Mir3.Droid
                 CheckSum = CEnvir.C,
             };
 
-            CEnvir.Enqueue(packet);
+            SubmitAccountRequest(packet);
         }
 
         private void U_Cancel_Click(object sender, EventArgs e)

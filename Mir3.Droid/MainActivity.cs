@@ -1,4 +1,4 @@
-using Android.App;
+﻿using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
@@ -157,7 +157,7 @@ namespace Mir3.Droid
         }
         private void AddView(View view)
         {
-            _overLayout.Visibility = ViewStates.Visible;
+            _overLayout.Visibility = _showLayout ? ViewStates.Visible : ViewStates.Gone;
             _overLayout.RemoveAllViews();
             _overLayout.AddView(view);
         }
@@ -166,7 +166,7 @@ namespace Mir3.Droid
 
         public void HidePopWindow()
         {
-            _currentWindow?.Dismiss();
+            BeginInvoke(() => _currentWindow?.Dismiss());
         }
         private PopupWindow GetWindow(int layoutId)
         {
@@ -187,9 +187,8 @@ namespace Mir3.Droid
             get { return _showLayout; }
             set
             {
-                if (value == _showLayout) return;
                 _showLayout = value;
-                _overLayout.Visibility = _showLayout ? ViewStates.Visible : ViewStates.Gone;
+                BeginInvoke(() => _overLayout.Visibility = _showLayout ? ViewStates.Visible : ViewStates.Gone);
             }
         }
 
@@ -272,7 +271,7 @@ namespace Mir3.Droid
 
         public void ShowMsg(string msg)
         {
-            Toast.MakeText(ApplicationContext, msg, ToastLength.Long).Show();
+            BeginInvoke(() => Toast.MakeText(ApplicationContext, msg, ToastLength.Long).Show());
         }
 
         public static void ShowInputField(string defaultText)

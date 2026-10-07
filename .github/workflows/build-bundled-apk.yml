@@ -28,7 +28,7 @@ jobs:
         run: |
           sudo dotnet workload install android --skip-manifest-update
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-34' 'build-tools;34.0.0'
-      - name: Test resource installer
+      - name: Test resource installer and account request gate
         run: dotnet run --project tests/BundledResources.Tests/BundledResources.Tests.csproj
       - name: Get authorized sample resources
         run: |
@@ -67,8 +67,8 @@ jobs:
           ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
           path = 'Mir3.Droid/AndroidManifest.xml'
           tree = ET.parse(path)
-          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionCode', '30')
-          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionName', '1.2.5-test3')
+          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionCode', '26')
+          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionName', '1.3.8')
           tree.write(path, encoding='utf-8', xml_declaration=True)
           PYCODE
       - name: Build arm64 test APK
@@ -97,7 +97,7 @@ jobs:
           python3 - <<'PY'
           import pathlib
           metadata = pathlib.Path('.build/APK-METADATA.txt').read_text()
-          assert "versionCode='30'" in metadata and "versionName='1.2.5-test3'" in metadata
+          assert "versionCode='26'" in metadata and "versionName='1.3.8'" in metadata
           PY
           sha256sum Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-SHA256.txt
       - uses: actions/upload-artifact@v4

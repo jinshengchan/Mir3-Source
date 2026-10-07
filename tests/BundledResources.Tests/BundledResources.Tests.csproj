@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Mir3.Mobile/AccountRequestGate.cs" Link="AccountRequestGate.cs" />
     <Compile Include="../../Mir3.Mobile/Patch/BundledResources.cs" Link="BundledResources.cs" />
     <Compile Include="../../Mir3.Mobile/Patch/PatchInformation.cs" Link="PatchInformation.cs" />
   </ItemGroup>

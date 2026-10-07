@@ -14,6 +14,15 @@ if (args.Length == 3 && args[0] == "--assets")
 }
 
 int passed = 0;
+int sent = 0;
+string notice = null;
+foreach (var state in new[] { (true, false, false), (true, true, true), (false, false, true), (false, true, false) })
+{
+    Check(!Mir3.Mobile.AccountRequestGate.TrySend(state.Item1, state.Item2, state.Item3, () => sent++, text => notice = text), "unready account request must be blocked");
+    Check(sent == 0 && !string.IsNullOrEmpty(notice), "blocked request must show feedback without sending");
+}
+Check(Mir3.Mobile.AccountRequestGate.TrySend(false, true, true, () => sent++, text => notice = text), "ready account request sends");
+Check(sent == 1, "ready request sent exactly once");
 void Check(bool condition, string message) { if (!condition) throw new Exception(message); passed++; }
 byte[] Zip(string name, byte[] content)
 {
@@ -93,7 +102,7 @@ try
     Check(!BundledResources.Install(_ => throw new FileNotFoundException(), root, false, null), "online-only APK compatibility");
     Check(!Directory.EnumerateFiles(root, "*.tmp", SearchOption.AllDirectories).Any(), "temporary files cleaned");
     Check(!Directory.EnumerateFiles(root, ".resource-*.zip").Any(), "staging archives cleaned");
-    Console.WriteLine($"PASS: {passed} bundled resource checks");
+    Console.WriteLine($"PASS: {passed} resource and account request checks");
 }
 finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 

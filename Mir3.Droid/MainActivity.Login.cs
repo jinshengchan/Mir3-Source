@@ -9,54 +9,71 @@ namespace Mir3.Droid
     public partial class MainActivity
     {
         #region 属性
+        string _account = "", _password = "";
         public string Account
         {
-            get
-            {
-                var acc = _overLayout.FindViewById<EditText>(Resource.Id.acc);
-                if (acc == null)
-                {
-                    return "";
-                }
-                return acc.Text;
-            }
+            get => _account;
             set
             {
-                var acc = _overLayout.FindViewById<EditText>(Resource.Id.acc);
-                if (acc == null)
+                _account = value ?? "";
+                Config.RememberedEMail = _account;
+                BeginInvoke(() =>
                 {
-                    return;
-                }
-                Config.RememberedEMail = value;
-                acc.Text = value;
+                    var input = _overLayout?.FindViewById<EditText>(Resource.Id.acc);
+                    if (input != null) input.Text = _account;
+                });
             }
         }
 
         public string Pwd
         {
-            get
-            {
-                var acc = _overLayout.FindViewById<EditText>(Resource.Id.pwd);
-                if (acc == null)
-                {
-                    return "";
-                }
-                return acc.Text;
-            }
+            get => _password;
             set
             {
-                var acc = _overLayout.FindViewById<EditText>(Resource.Id.pwd);
-                if (acc == null)
+                _password = value ?? "";
+                Config.RememberedPassword = _password;
+                BeginInvoke(() =>
                 {
-                    return;
-                }
-                Config.RememberedPassword = value;
-                acc.Text = value;
+                    var input = _overLayout?.FindViewById<EditText>(Resource.Id.pwd);
+                    if (input != null) input.Text = _password;
+                });
             }
         }
         #endregion
 
-        public void InitLogin()
+        public void InitLogin() => BeginInvoke(InitializeLoginView);
+
+        string _loginStatus = "正在连接游戏服务器...";
+        public void SetLoginStatus(string status)
+        {
+            _loginStatus = status;
+            BeginInvoke(() =>
+            {
+                var label = _overLayout?.FindViewById<TextView>(Resource.Id.login_status);
+                if (label != null) label.Text = status;
+            });
+        }
+
+        bool SubmitAccountRequest(Library.Network.Packet packet)
+        {
+            var connection = CEnvir.Connection;
+            try
+            {
+                bool sent = Mir3.Mobile.AccountRequestGate.TrySend(CEnvir.WrongVersion,
+                    connection != null && connection.ServerConnected && !connection.Disconnecting,
+                    CEnvir.Loaded, () => connection.Enqueue(packet), ShowMsg);
+                if (sent) ShowMsg("请求已提交，请等待服务器回复。");
+                return sent;
+            }
+            catch (Exception ex)
+            {
+                CEnvir.SaveError(ex.ToString());
+                ShowMsg("请求发送失败，请检查连接状态。");
+                return false;
+            }
+        }
+
+        private void InitializeLoginView()
         {
             var view = View.Inflate(this, Resource.Layout.login, null);
             var newBtn = view.FindViewById<ImageButton>(Resource.Id.newAcount);
@@ -79,10 +96,13 @@ namespace Mir3.Droid
             var loginBtn = view.FindViewById<ImageButton>(Resource.Id.login_btn);
             loginBtn.Click -= LoginBtn_Click;
             loginBtn.Click += LoginBtn_Click;
+            view.FindViewById<EditText>(Resource.Id.acc).TextChanged += (sender, args) => _account = ((EditText)sender).Text ?? "";
+            view.FindViewById<EditText>(Resource.Id.pwd).TextChanged += (sender, args) => _password = ((EditText)sender).Text ?? "";
             AddView(view);
 
             Account = Config.RememberedEMail;
             Pwd = Config.RememberedPassword;
+            SetLoginStatus(_loginStatus);
         }
 
         private void Forget_Click(object sender, EventArgs e)
@@ -153,6 +173,11 @@ namespace Mir3.Droid
               //  return;
             }
 #endif
+            if (string.IsNullOrWhiteSpace(Account) || string.IsNullOrEmpty(Pwd))
+            {
+                ShowMsg("请输入账号和密码。");
+                return;
+            }
             C.Login packet = new C.Login
             {
                 EMailAddress = Account,
@@ -160,7 +185,7 @@ namespace Mir3.Droid
                 CheckSum = CEnvir.C,
             };
 
-            CEnvir.Enqueue(packet);
+            SubmitAccountRequest(packet);
         }
 
         private void NewBtn_Click(object sender, EventArgs e)

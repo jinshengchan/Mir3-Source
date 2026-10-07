@@ -63,6 +63,7 @@ namespace Client.Scenes
 
         void CreateGame()
         {
+            Mir3.Mobile.ConnectionDiagnostics.Record("creating game scene");
             if (GameScene.Game != null)
             {
                 return;
@@ -74,6 +75,7 @@ namespace Client.Scenes
             scene.IsVisible = false;
 
             scene.Loaded = true;
+            Mir3.Mobile.ConnectionDiagnostics.Record("game scene created; enter button enabled");
 
             ServerBox.Visible = false;
             StartGameBox.Visible = true;
@@ -81,6 +83,7 @@ namespace Client.Scenes
 
         void StartGame()
         {
+            Mir3.Mobile.ConnectionDiagnostics.Record($"enter clicked attempted={StartGameAttempted} gameLoaded={GameScene.Game?.Loaded}");
             if (StartGameAttempted) return;
             if (GameScene.Game == null || !GameScene.Game.Loaded) return;
 

@@ -110,6 +110,17 @@ Android 登录页显示当前游戏连接状态、地址、重试和连接失败
 CI 在构建前校验真实基础包与 152 个补丁，在构建后再次核对 APK 内基础 ZIP 的 MD5 和版本清单，附件包含 BUNDLED-INTEGRITY.json、实际 APK 元数据和 SHA-256。此前构建虽检查了 ZIP CRC，未在 CI 对下载到的真实资源做这项清单比对；本次补上该检查。校验失败时停止发布附件，保留原校验要求。
 # Original Android protocol compatibility
 
+The entry diagnostic test build labels the login screen `进入诊断v1` and appends
+`connection-debug.txt` in the external files root at startup, independently of
+`Errors` and its exception limit. It records touch/start actions, selected-role
+presence, packet type/ID/length, socket send completion, start permission and
+scene transitions, server disconnect reasons, EOF and local timeout state.
+Packet contents, passwords and account text are not recorded. Each session is
+limited to 5000 events. Missing role selection and disconnected start requests
+now have visible feedback. Local closes report their observed cause instead of
+always labeling the failure a timeout. Actual server disconnect packets keep
+their reason-specific dialogs; the file records the reason too.
+
 After login began working, starting a character exposed a second wire-layout
 difference: the sample's `Library.ClientControl` includes `OnTeamHookTab` between
 `OnAutoHookTab` and `OnBrightBox`. The previous check only inspected models in

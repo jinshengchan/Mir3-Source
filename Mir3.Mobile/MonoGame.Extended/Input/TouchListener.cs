@@ -111,6 +111,8 @@ namespace MonoGame.Extended.Input
         private void CheckTouchDown(TouchEventArgs e)
         {
             System.Diagnostics.Debug.WriteLine($"down{e.Location.ToString()}");
+            if (DXControl.ActiveScene is Client.Scenes.SelectScene || DXControl.ActiveScene is Client.Scenes.LoadScene)
+                Mir3.Mobile.ConnectionDiagnostics.Record($"touch down x={e.Location.X} y={e.Location.Y} scene={DXControl.ActiveScene.GetType().Name}");
             CEnvir.MouseLocation = CEnvir.UIScale == 1F ? e.Location : new System.Drawing.Point((int)Math.Round((e.Location.X - CEnvir.UI_Offset_X) / CEnvir.UIScale), (int)Math.Round(e.Location.Y / CEnvir.UIScale));
             try
             {

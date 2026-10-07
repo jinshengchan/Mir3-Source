@@ -102,6 +102,13 @@ namespace Library.Network
         /// 异常时的事件处理输出
         /// </summary>
         public EventHandler<string> Output;
+#if ANDROID && BUNDLED_RESOURCE_TEST
+        public Action<string> PacketTrace;
+        private void Trace(string message)
+        {
+            try { PacketTrace?.Invoke(message); } catch { }
+        }
+#endif
         protected BaseConnection(TcpClient client)
         {
             Client = client;
@@ -180,6 +187,9 @@ namespace Library.Network
 
                 if (dataRead == 0)
                 {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                    Trace("remote socket closed (EOF)");
+#endif
                     Disconnecting = true;
                     return;
                 }
@@ -212,7 +222,12 @@ namespace Library.Network
             Packet p;
 
             while ((p = Packet.ReceivePacket(_rawData, out _rawData)) != null)
+            {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                Trace($"receive {p.GetType().FullName} id={Packet.Packets.IndexOf(p.GetType())} length={p.Length}");
+#endif
                 ReceiveList.Enqueue(p);
+            }
         }
         /// <summary>
         /// 开始发送
@@ -230,6 +245,9 @@ namespace Library.Network
                 Sending = true;
                 TotalBytesSent += data.Count;
                 Client.Client.BeginSend(data.ToArray(), 0, data.Count, SocketFlags.None, SendData, null);
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                Trace($"socket send scheduled bytes={data.Count}");
+#endif
                 UpdateTimeOut();
             }
             catch (Exception ex)
@@ -249,7 +267,10 @@ namespace Library.Network
             try
             {
                 Sending = false;
-                Client.Client.EndSend(result);
+                int completedBytes = Client.Client.EndSend(result);
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                Trace($"socket send completed bytes={completedBytes}");
+#endif
                 UpdateTimeOut();
             }
             catch (Exception ex)
@@ -271,6 +292,9 @@ namespace Library.Network
             if (IsBot) return;
 
             SendList.Enqueue(p);
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            Trace($"queued {p.GetType().FullName} id={Packet.Packets.IndexOf(p.GetType())}");
+#endif
         }
         /// <summary>
         /// 尝试断开连接
@@ -402,6 +426,9 @@ namespace Library.Network
             // 假人连接永不超时，跳过超时检测
             if (!IsBot && Time.Now >= TimeOutTime)
             {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                Trace($"local receive timeout disconnecting={Disconnecting} sent={TotalBytesSent} received={TotalBytesReceived} buffered={_rawData?.Length}");
+#endif
                 if (!Disconnecting)
                     TrySendDisconnect(new G.Disconnect { Reason = DisconnectReason.TimedOut });
                 else
@@ -429,6 +456,9 @@ namespace Library.Network
                     byte[] bytes = p.GetPacketBytes();
 
                     data.AddRange(bytes);
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                    Trace($"serialized {p.GetType().FullName} bytes={bytes.Length}");
+#endif
                 }
                 catch (Exception ex)
                 {

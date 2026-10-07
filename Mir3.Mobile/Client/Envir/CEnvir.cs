@@ -1596,6 +1596,7 @@ namespace Client.Envir
         /// <param name="ex"></param>
         public static void SaveError(string ex)
         {
+            Mir3.Mobile.ConnectionDiagnostics.Record(ex);
             try
             {
 

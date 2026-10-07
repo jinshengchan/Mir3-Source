@@ -76,6 +76,10 @@ namespace Mir3.Droid
         {
             //手机目录
             CEnvir.MobileClientPath = Application.Context.GetExternalFilesDir(null)!.AbsolutePath + "/";
+#if BUNDLED_RESOURCE_TEST
+            try { Mir3.Mobile.ConnectionDiagnostics.Initialize(CEnvir.MobileClientPath); }
+            catch (Exception ex) { UI.ShowMsg("诊断日志无法创建：" + ex.GetType().Name); }
+#endif
 
             //旧版 Data.zip 可能将配置文件解压为仅可写权限，导致启动读取配置时黑屏
             string configPath = Path.Combine(CEnvir.MobileClientPath, "Mir3.ini");

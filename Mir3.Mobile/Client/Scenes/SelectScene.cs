@@ -111,6 +111,7 @@ namespace Client.Scenes
         /// </summary>
         void NextSecene()
         {
+            Mir3.Mobile.ConnectionDiagnostics.Record("switching SelectScene to LoadScene");
             CEnvir.UpdateScale(isGame: true);
             ActiveScene = new LoadScene(CEnvir.GameSize) { CharacterIndex = CharIndex };
             NextScence = false;
@@ -806,6 +807,20 @@ namespace Client.Scenes
             /// </summary>
             public void DoStartGame()
             {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                Mir3.Mobile.ConnectionDiagnostics.Record($"start clicked attempted={StartGameAttempted} selected={CurrSelCharacter != null} characters={CharacterList?.Count} connected={CEnvir.Connection?.Connected} serverConnected={CEnvir.Connection?.ServerConnected}");
+                if (CurrSelCharacter == null)
+                {
+                    Mir3.Mobile.Game1.Native.UI.ShowMsg("请先创建或选择一个角色。");
+                    return;
+                }
+                if (CEnvir.Connection?.Connected != true || CEnvir.Connection.Disconnecting)
+                {
+                    Mir3.Mobile.Game1.Native.UI.ShowMsg("游戏连接已断开，请重新登录。");
+                    return;
+                }
+                Mir3.Mobile.Game1.Native.UI.ShowMsg(StartGameAttempted ? "进入游戏请求已提交，正在等待回复。" : "正在请求进入游戏...");
+#endif
                 if (StartGameAttempted) return;
 
                 if (CurrSelCharacter != null)

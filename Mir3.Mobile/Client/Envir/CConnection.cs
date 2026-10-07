@@ -33,6 +33,9 @@ namespace Client.Envir
         protected override TimeSpan TimeOutDelay => Config.TimeOutDuration;
         private DateTime DurWarnDelay;
         public bool ServerConnected { get; set; }
+#if ANDROID && BUNDLED_RESOURCE_TEST
+        private string diagnosticReason;
+#endif
 
         public int Ping;
 
@@ -41,6 +44,10 @@ namespace Client.Envir
         {
             OnException += (o, e) =>
             {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                diagnosticReason = "网络或数据处理异常：" + e.GetType().Name;
+                Mir3.Mobile.ConnectionDiagnostics.Record(e.ToString());
+#endif
                 //if (Config.SentryEnabled)
                 //{
                 //    if (!(e is SocketException))
@@ -52,6 +59,7 @@ namespace Client.Envir
             };
             Output += (o, e) =>
             {
+                Mir3.Mobile.ConnectionDiagnostics.Record(e);
                 CEnvir.SaveError(e);
             };
 
@@ -59,6 +67,14 @@ namespace Client.Envir
 
             AdditionalLogging = true;
 
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            PacketTrace = message =>
+            {
+                if (message.StartsWith("remote socket closed", StringComparison.Ordinal)) diagnosticReason = "服务器关闭连接";
+                Mir3.Mobile.ConnectionDiagnostics.Record(message);
+            };
+            Mir3.Mobile.ConnectionDiagnostics.Record($"connected scene={DXControl.ActiveScene?.GetType().Name} packetTypes={Packet.Packets.Count}");
+#endif
             BeginReceive();
         }
 
@@ -68,6 +84,10 @@ namespace Client.Envir
         }
         public override void Disconnect()  //断开链接
         {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            diagnosticReason ??= Time.Now >= TimeOutTime ? "客户端等待数据超时" : "连接已关闭";
+            Mir3.Mobile.ConnectionDiagnostics.Record($"disconnect reason={diagnosticReason} scene={DXControl.ActiveScene?.GetType().Name} sent={TotalBytesSent} received={TotalBytesReceived} pendingSend={SendList?.Count} pendingReceive={ReceiveList?.Count} buffered={_rawData?.Length}");
+#endif
             base.Disconnect();
 
             if (CEnvir.Connection == this)
@@ -81,7 +101,11 @@ namespace Client.Envir
                 }
                 else
                 {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+                    DXMessageBox.Show("与服务器断开连接\n原因：" + diagnosticReason + "\n诊断文件：connection-debug.txt", "已断开连接".Lang(), DialogAction.ReturnToLogin);
+#else
                     DXMessageBox.Show("与服务器断开连接\n原因：连接超时".Lang(), "已断开连接".Lang(), DialogAction.ReturnToLogin);
+#endif
                 }
             }
 
@@ -91,6 +115,9 @@ namespace Client.Envir
         }
         public override void TrySendDisconnect(Packet p)  //尝试发送断开链接
         {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            if (p is G.Disconnect disconnect) diagnosticReason = "客户端断开：" + disconnect.Reason;
+#endif
             SendDisconnect(p);
         }
 
@@ -105,6 +132,10 @@ namespace Client.Envir
 
         public void Process(G.Disconnect p)  //断开
         {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            diagnosticReason = "服务器断开：" + p.Reason;
+            Mir3.Mobile.ConnectionDiagnostics.Record(diagnosticReason);
+#endif
             Disconnecting = true;
 
             var scene = DXControl.ActiveScene as LoginScene;
@@ -880,6 +911,7 @@ namespace Client.Envir
         }
         public void Process(S.RequestStartGame p)  //尝试开始游戏
         {
+            Mir3.Mobile.ConnectionDiagnostics.Record($"start permission reply result={p.Result} characterIndex={p.CharacterIndex} scene={DXControl.ActiveScene?.GetType().Name}");
             try
             {
                 SelectScene select = DXControl.ActiveScene as SelectScene;
@@ -938,8 +970,8 @@ namespace Client.Envir
                         box.OKButton.MouseClick += (o, e) => select.SelectBox.StartGameAttempted = false;
                         break;
                     case StartGameResult.Success:
-
                         //重新初始化大补帖配置，以免加载到上一位角色配置
+                        Mir3.Mobile.ConnectionDiagnostics.Record("start permission accepted; loading character settings");
                         BigPatchConfig.Init();
                         //优先加载角色本地配置文件
                         CConfigReader.Load(select.SelectBox.CurrSelCharacter.CharacterName, select.SelectBox.CurrSelCharacter.CharacterIndex);
@@ -964,6 +996,7 @@ namespace Client.Envir
                         DXSoundManager.Play(SoundIndex.StartGame145);
                         obj.AfterAnimation += (o, e) =>
                         {
+                            Mir3.Mobile.ConnectionDiagnostics.Record("start animation completed");
                             obj.Visible = false;
 
                             select.SelectBox.StartGameAttempted = false;
@@ -983,6 +1016,7 @@ namespace Client.Envir
         }
         public void Process(S.StartGame p)  //开始游戏
         {
+            Mir3.Mobile.ConnectionDiagnostics.Record($"enter game reply result={p.Result} scene={DXControl.ActiveScene?.GetType().Name}");
             Config.ShortcutEnabled = p.ShortcutEnabled;
 
             try
@@ -5986,4 +6020,3 @@ namespace Client.Envir
         }
     }
 }
-

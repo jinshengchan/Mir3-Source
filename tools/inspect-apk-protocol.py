@@ -14,6 +14,89 @@ import dnfile
 import lz4.block
 
 
+def runtime_packet_sort(packets):
+    """Match Packet's comparer and .NET List.Sort, including unstable ties.
+
+    Client/server types with the same name compare equal. Their metadata input
+    order and introsort swaps therefore matter to the actual wire IDs.
+    """
+    def compare(a, b):
+        if a['namespace'] != b['namespace']:
+            if a['namespace'] == 'Library.Network.GeneralPackets':
+                return -1
+            if b['namespace'] == 'Library.Network.GeneralPackets':
+                return 1
+        return (a['name'] > b['name']) - (a['name'] < b['name'])
+
+    def swap(a, b):
+        packets[a], packets[b] = packets[b], packets[a]
+
+    def order(a, b):
+        if a != b and compare(packets[a], packets[b]) > 0:
+            swap(a, b)
+
+    def down_heap(i, n, lo):
+        value = packets[lo + i - 1]
+        while i <= n // 2:
+            child = 2 * i
+            if child < n and compare(packets[lo + child - 1], packets[lo + child]) < 0:
+                child += 1
+            if compare(value, packets[lo + child - 1]) >= 0:
+                break
+            packets[lo + i - 1] = packets[lo + child - 1]
+            i = child
+        packets[lo + i - 1] = value
+
+    def intro(lo, hi, depth):
+        while hi > lo:
+            size = hi - lo + 1
+            if size <= 16:
+                if size == 2:
+                    order(lo, hi)
+                elif size == 3:
+                    order(lo, hi - 1)
+                    order(lo, hi)
+                    order(hi - 1, hi)
+                else:
+                    for i in range(lo, hi):
+                        value, j = packets[i + 1], i
+                        while j >= lo and compare(value, packets[j]) < 0:
+                            packets[j + 1] = packets[j]
+                            j -= 1
+                        packets[j + 1] = value
+                return
+            if depth == 0:
+                for i in range(size // 2, 0, -1):
+                    down_heap(i, size, lo)
+                for i in range(size, 1, -1):
+                    swap(lo, lo + i - 1)
+                    down_heap(1, i - 1, lo)
+                return
+            depth -= 1
+            mid = lo + (hi - lo) // 2
+            order(lo, mid)
+            order(lo, hi)
+            order(mid, hi)
+            pivot = packets[mid]
+            swap(mid, hi - 1)
+            left, right = lo, hi - 1
+            while left < right:
+                left += 1
+                while compare(packets[left], pivot) < 0:
+                    left += 1
+                right -= 1
+                while compare(pivot, packets[right]) < 0:
+                    right -= 1
+                if left >= right:
+                    break
+                swap(left, right)
+            swap(left, hi - 1)
+            intro(left + 1, hi, depth)
+            hi = left - 1
+    if len(packets) > 1:
+        intro(0, len(packets) - 1, 2 * len(packets).bit_length())
+
+
 def unpack_image(image):
     if image[:4] == b'XALZ':
         image = lz4.block.decompress(image[12:], uncompressed_size=struct.unpack_from('<I', image, 8)[0])
@@ -158,7 +241,7 @@ def inspect(name, image):
                 str(field.row.Name): constants[id(field.row)] for field in entry.FieldList
                 if id(field.row) in constants
             }
-    packets.sort(key=lambda p: (p['namespace'] != 'Library.Network.GeneralPackets', p['namespace'], p['name']))
+    runtime_packet_sort(packets)
     for packet_id, packet in enumerate(packets):
         packet['id'] = packet_id
     return {'assembly': name, 'sha256': hashlib.sha256(image).hexdigest(), 'packets': packets,
@@ -200,7 +283,7 @@ def main():
     for report in reports:
         print(report['assembly'], 'packet count:', len(report['packets']))
         for packet in report['packets']:
-            if packet['name'] in ('Login', 'Logout', 'NewAccount', 'GoodVersion', 'Ping'):
+            if packet['name'] in ('Login', 'Logout', 'NewAccount', 'GoodVersion', 'Ping', 'RequestStartGame'):
                 print(packet['id'], packet['namespace'] + '.' + packet['name'],
                       ', '.join(prop['name'] for prop in packet['properties']))
     if args.annotations:

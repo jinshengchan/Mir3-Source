@@ -261,13 +261,17 @@ def inspect(name, image):
             'enums': enums}
 
 
-def inspect_resource_readers(name, image):
+def inspect_resource_readers(name, image, startup=False):
     from dncil.cil.body import CilMethodBody
     from dncil.cil.body.reader import CilMethodBodyReaderBytes
     pe = dnfile.dnPE(data=image, clr_lazy_load=True)
     tables = pe.net.mdtables
     owners = {}
     type_names = {id(t): str(t.TypeNamespace) + '.' + str(t.TypeName) for t in tables.TypeDef}
+    if tables.NestedClass:
+        for nested in tables.NestedClass:
+            child, parent = nested.NestedClass.row, nested.EnclosingClass.row
+            type_names[id(child)] = type_names[id(parent)] + '/' + str(child.TypeName)
     for t in tables.TypeDef:
         for method in t.MethodList:
             owners[id(method.row)] = type_names[id(t)]
@@ -276,6 +280,11 @@ def inspect_resource_readers(name, image):
     def resolve(token):
         table_id, index = token >> 24, token & 0xffffff
         if table_id == 0x70:
+            if startup:
+                value = pe.net.user_strings.get(index).value
+                if value in {'Data.zip', 'DataAdd.zip', 'PList.Bin', 'Version.bin',
+                             'APKVersion.bin', 'Patchs', 'LocalUpdate', 'LocalUpdate/', '.gz', 'Map'}:
+                    return value
             return '<string>'  # Never publish arbitrary embedded string values.
         table = {1: tables.TypeRef, 2: tables.TypeDef, 4: tables.Field,
                  6: tables.MethodDef, 10: tables.MemberRef, 27: tables.TypeSpec,
@@ -302,8 +311,11 @@ def inspect_resource_readers(name, image):
             m = method.row
             if not m.Rva:
                 continue
-            if not (str(m.Name) in selected.get(short, set()) or
-                    ('GetImageAsync' in short and str(m.Name) == 'MoveNext')):
+            keep = (type_names[id(t)] == 'Patch.Update' or
+                    type_names[id(t)].startswith('Patch.Update/')) if startup else (
+                    str(m.Name) in selected.get(short, set()) or
+                    ('GetImageAsync' in short and str(m.Name) == 'MoveNext'))
+            if not keep:
                 continue
             body = CilMethodBody(CilMethodBodyReaderBytes(pe.get_data(m.Rva)))
             instructions = []
@@ -325,9 +337,13 @@ def main():
     parser.add_argument('--annotations', action='store_true')
     parser.add_argument('--compare', help='Require packet IDs and layouts to match this original report')
     parser.add_argument('--resources', action='store_true', help='Inspect resource reader method IL instead of packets')
+    parser.add_argument('--startup', action='store_true', help='Inspect startup updater and its generated method IL')
     args = parser.parse_args()
-    if args.resources:
-        reports = [inspect_resource_readers(name, image) for name, image in images(args.apk)]
+    if args.resources or args.startup:
+        reports = [inspect_resource_readers(name, image, startup=args.startup) for name, image in images(args.apk)]
+        if args.resources and not args.startup:
+            for report, (name, image) in zip(reports, images(args.apk)):
+                report['methods'].update(inspect_resource_readers(name, image, startup=True)['methods'])
         reports = [r for r in reports if r['methods']]
         payload = json.dumps(reports, separators=(',', ':')).encode()
         pathlib.Path(args.output).write_bytes(payload)
@@ -336,7 +352,8 @@ def main():
         if len(chunks) > 10:
             raise ValueError('Resource reader report exceeds annotation limit')
         for index, chunk in enumerate(chunks):
-            print(f'::notice title=Resource readers {index + 1}/{len(chunks)}::{chunk}')
+            title = 'Startup updater' if args.startup else 'Resource readers'
+            print(f'::notice title={title} {index + 1}/{len(chunks)}::{chunk}')
         return
     reports = [inspect(name, image) for name, image in images(args.apk)]
     reports = [report for report in reports if report['packets']]

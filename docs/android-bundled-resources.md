@@ -88,3 +88,9 @@ dotnet run --project tests/BundledResources.Tests/BundledResources.Tests.csproj 
 `codex/bundled-apk-delivery` 分支提供 GitHub Actions 构建流程。该分支推送后自动构建，资源来自已授权共享的样本 Google Drive 文件。进入仓库的 Actions，打开 `Build bundled Android APK`，等待运行成功，在 Artifacts 中下载 `Mir3-bundled-arm64-test-apk`，解压得到 APK。附件仅保留一天，过期后可以重新运行任务。
 
 此流程不会创建公开 Release 或修改 main，生成的仍为测试签名 APK。需要仓库启用 Actions 并有可用的构建与附件存储配额；运行成功和附件下载以 GitHub 页面实际结果为准。
+
+## 启动进度修复
+
+内置资源安装现在报告基础 ZIP 复制、解压以及 gzip 补丁读取进度。启动界面在游戏主线程每帧读取状态，不再依赖下载进度回调刷新文字。更新清单请求限制为 15 秒，未捕获的启动异常会记录日志并显示原因。完整内置资源安装完成后，更新服务不可达时仍按原流程进入登录界面；游戏服务器登录是否成功需单独验证。
+
+CI 测试包显式设置 `-p:BundledResourceTestBuild=true`，跳过 APK 自身的版本强制更新，避免测试版本被更新服务器要求换回旧客户端；资源更新仍保留。此选项默认关闭，正式发布应配置正确版本和签名。新版测试包版本号为 2。各次 CI 的临时测试签名可能不同，不能保证覆盖安装；覆盖失败时先备份需要保留的数据，再更换测试包。

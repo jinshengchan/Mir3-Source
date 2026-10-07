@@ -59,7 +59,14 @@ using (var buffer = new MemoryStream())
 Stream Open(string path) => assets.TryGetValue(path, out var bytes) ? new NonSeekStream(bytes) : throw new FileNotFoundException(path);
 try
 {
-    Check(BundledResources.Install(Open, root, false, null), "first install");
+    var progress = new List<double>();
+    var statuses = new List<string>();
+    Check(BundledResources.Install(Open, root, false, statuses.Add, progress.Add), "first install");
+    Check(progress.Any(value => value > 0 && value < 1), "installation reports intermediate progress");
+    Check(progress.All(value => value >= 0 && value <= 1), "progress stays within range");
+    Check(progress.Zip(progress.Skip(1)).All(pair => pair.First <= pair.Second), "progress is monotonic");
+    Check(progress.Last() == 1, "completion reaches 100 percent");
+    Check(statuses.Last() == "内置资源安装完成", "completion status reported");
     Check(File.ReadAllBytes(Path.Combine(root, "Data/example.Zl")).SequenceEqual(payload), "patch content");
     Check(File.Exists(Path.Combine(root, "Map/example.map")), "base ZIP content");
     Check(File.Exists(Path.Combine(root, "Version.bin")), "version state");

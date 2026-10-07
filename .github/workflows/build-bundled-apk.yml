@@ -66,6 +66,7 @@ jobs:
             -p:AndroidSdkDirectory="$ANDROID_HOME" \
             -p:JavaSdkDirectory="$JAVA_HOME" \
             -p:RuntimeIdentifier=android-arm64 \
+            -p:BundledResourceTestBuild=true -p:ApplicationVersion=2 \
             -p:RunAOTCompilation=False -p:AotAssemblies=False \
             -p:AndroidEnableProfiledAot=False -p:PublishTrimmed=False
       - name: Verify package and signature

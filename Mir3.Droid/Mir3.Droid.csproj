@@ -44,6 +44,9 @@
     <NoWarn>1701;1702;CS1587;CS0067</NoWarn>
     <AndroidCreatePackagePerAbi>False</AndroidCreatePackagePerAbi>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(BundledResourceTestBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);BUNDLED_RESOURCE_TEST</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FontStashSharp.MonoGame" Version="1.2.7" />
     <PackageReference Include="MonoGame.Framework.Android" Version="3.8.1.303" />

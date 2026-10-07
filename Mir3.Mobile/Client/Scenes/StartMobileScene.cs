@@ -132,21 +132,6 @@ namespace Client.Scenes
             {
                 MaxWidth = Size.Width
             };
-            vm.TotalUpdated = (per) =>
-            {
-                //if (vm.IsComplate && !IsComplate)
-                //{
-                //    IsComplate = true;
-                //    _now = CEnvir.Now.AddSeconds(1);
-                //}
-                Percent.Size = new Size(per, Percent.Size.Height);
-                Title.Text = vm.LoadText;
-                PercentLabel.Text = $"进度 {vm.TotalPercent}%";
-            };
-            //vm.CurrentUpdated = (per) =>
-            //{
-            //    Debug.WriteLine("c:" + per);
-            //};
             _update = new Update(vm);
             _ = _update.CheckPatchAsync(false);
         }
@@ -158,6 +143,12 @@ namespace Client.Scenes
             base.Process();
 
             if (_update == null) return;
+
+            // Graphics controls must only be changed on the game/render thread.
+            var vm = _update.Vm;
+            Percent.Size = new Size(Math.Clamp(vm.TotalWidth, 0, Size.Width), Percent.Size.Height);
+            Title.Text = vm.LoadText ?? "正在准备资源...";
+            PercentLabel.Text = $"进度 {vm.TotalPercent:0.00}%";
 
             if (_update.AllCompleted && !IsComplate)
             {

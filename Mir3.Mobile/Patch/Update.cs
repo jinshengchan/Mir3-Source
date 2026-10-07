@@ -30,10 +30,21 @@ namespace Patch
 
         public async Task CheckPatchAsync(bool repair)
         {
+            try { await CheckPatchCoreAsync(repair); }
+            catch (Exception ex)
+            {
+                CEnvir.SaveError(ex.ToString());
+                Vm.LoadText = "启动失败: " + ex.Message;
+            }
+        }
+
+        private async Task CheckPatchCoreAsync(bool repair)
+        {
 #if ANDROID
             // Install the APK snapshot before asking the update server for newer files.
             var bundled = Task.Run(() => BundledResources.Install(
-                Game1.Native.GetFileStream, ClientPath, repair, text => Vm.LoadText = text));
+                Game1.Native.GetFileStream, ClientPath, repair, text => Vm.LoadText = text,
+                value => Vm.TotalWidth = (int)(Math.Clamp(value, 0, 1) * Vm.MaxWidth)));
             while (!bundled.IsCompleted)
             {
                 Vm.Update();
@@ -43,16 +54,17 @@ namespace Patch
             catch (Exception ex)
             {
                 CEnvir.SaveError(ex.ToString());
-                Vm.LoadText = "内置资源安装失败，请检查可用空间后重试。";
+                Vm.LoadText = "内置资源安装失败: " + ex.Message;
                 return;
             }
 #endif
             //第一步
             // 1. Android环境会判断apk版本，然后更新apk包
             // 2. 在没有Map目录的时候 先更新基础包
+            Vm.LoadText = "正在连接更新服务器...";
             var pkginfo = await GetAPKVersion();
             var currentpkginfo = await LoadAPKVersion();
-#if ANDROID
+#if ANDROID && !BUNDLED_RESOURCE_TEST
             //判断APK版本是否匹配，不匹配更新apk
             if ((pkginfo != null && string.Format("{0}.{1}", Config.VersionName, Config.VersionCode) != pkginfo.APKVersion))
             {
@@ -67,6 +79,7 @@ namespace Patch
 
                     await Task.Delay(100);
                 }
+                await apktask;
                 Vm.Update();
 
                 //更新apk
@@ -76,6 +89,7 @@ namespace Patch
             }
 #endif
 
+#if !BUNDLED_RESOURCE_TEST
             //所有平台判断版本是否匹配，不匹配不让进游戏
             if (pkginfo != null && string.Format("{0}.{1}", Config.VersionName, Config.VersionCode) != pkginfo.APKVersion)
             {
@@ -83,6 +97,7 @@ namespace Patch
                 return;
             }
 
+#endif
             //基础包，没有Map目录就下载解压DataAdd.zip
             if ((!Directory.Exists(Path.Combine(CEnvir.MobileClientPath, "Map"))) ||
                 (pkginfo != null && currentpkginfo != null && !IsMatch(pkginfo.BaseZipCheckSum, currentpkginfo.BaseZipCheckSum)))
@@ -131,6 +146,7 @@ namespace Patch
 
                     await Task.Delay(100);
                 }
+                await maptask;
                 Vm.Update();
             }
 
@@ -145,6 +161,8 @@ namespace Patch
             }
 
             //第二步更新补丁文件
+            Vm.LoadText = "正在检查资源更新...";
+            Vm.TotalDownload = Vm.TotalProgress = Vm.CurrentProgress = 0;
             var liveVersion = await GetPatchInformation();
             if (liveVersion == null)
             {
@@ -163,6 +181,7 @@ namespace Patch
 
                 await Task.Delay(100);
             }
+            await task;
             Vm.Update();
             SaveVersion(liveVersion);
             Vm.LoadText = "完成";
@@ -268,6 +287,18 @@ namespace Patch
             return null;
         }
 
+        private static async Task<byte[]> DownloadMetadata(WebClient client, string name)
+        {
+            var download = client.DownloadDataTaskAsync(new Uri(new Uri(Config.Host), name));
+            if (await Task.WhenAny(download, Task.Delay(TimeSpan.FromSeconds(15))) != download)
+            {
+                client.CancelAsync();
+                try { await download; } catch { }
+                throw new TimeoutException("更新服务器响应超时。");
+            }
+            return await download;
+        }
+
         private async Task<List<PatchInformation>> GetPatchInformation()
         {
             try
@@ -297,7 +328,7 @@ namespace Patch
                 {
                     if (Config.UseLogin)
                         client.Credentials = new NetworkCredential(Config.UserName, Config.Password);
-                    var bytes = await client.DownloadDataTaskAsync(Path.Combine(Config.Host, PListFileName));
+                    var bytes = await DownloadMetadata(client, PListFileName);
                     using (MemoryStream mStream = new MemoryStream(bytes))
                     using (BinaryReader reader = new BinaryReader(mStream))
                     {
@@ -438,7 +469,7 @@ namespace Patch
                 {
                     if (Config.UseLogin)
                         client.Credentials = new NetworkCredential(Config.UserName, Config.Password);
-                    var bytes = await client.DownloadDataTaskAsync(Path.Combine(Config.Host, "APKVersion.bin"));
+                    var bytes = await DownloadMetadata(client, "APKVersion.bin");
                     using (MemoryStream mStream = new MemoryStream(bytes))
                     using (BinaryReader reader = new BinaryReader(mStream))
                     {

@@ -23,6 +23,14 @@ jobs:
           python3 tools/inspect-apk-protocol.py .build/sample.apk --output .build/ORIGINAL-PROTOCOL.json --annotations
       - name: Inspect original resource readers
         run: python3 tools/inspect-apk-protocol.py .build/sample.apk --resources --output .build/ORIGINAL-RESOURCE-READERS.json
+      - name: Inspect original startup flow part 1
+        run: python3 tools/inspect-apk-protocol.py .build/sample.apk --startup --output .build/ORIGINAL-STARTUP.json
+      - name: Inspect original startup flow part 2
+        run: python3 tools/inspect-apk-protocol.py .build/sample.apk --startup --annotation-part 1 --output .build/ORIGINAL-STARTUP.json
+      - name: Inspect original startup flow part 3
+        run: python3 tools/inspect-apk-protocol.py .build/sample.apk --startup --annotation-part 2 --output .build/ORIGINAL-STARTUP.json
+      - name: Inspect original startup flow part 4
+        run: python3 tools/inspect-apk-protocol.py .build/sample.apk --startup --annotation-part 3 --output .build/ORIGINAL-STARTUP.json
       - uses: actions/upload-artifact@v4
         with:
           name: original-android-protocol

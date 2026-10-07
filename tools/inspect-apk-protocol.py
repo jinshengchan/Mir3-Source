@@ -338,20 +338,21 @@ def main():
     parser.add_argument('--compare', help='Require packet IDs and layouts to match this original report')
     parser.add_argument('--resources', action='store_true', help='Inspect resource reader method IL instead of packets')
     parser.add_argument('--startup', action='store_true', help='Inspect startup updater and its generated method IL')
+    parser.add_argument('--annotation-part', type=int, choices=range(4), default=0,
+                        help='Publish a group of at most ten IL annotations')
     args = parser.parse_args()
     if args.resources or args.startup:
         reports = [inspect_resource_readers(name, image, startup=args.startup) for name, image in images(args.apk)]
-        if args.resources and not args.startup:
-            for report, (name, image) in zip(reports, images(args.apk)):
-                report['methods'].update(inspect_resource_readers(name, image, startup=True)['methods'])
         reports = [r for r in reports if r['methods']]
         payload = json.dumps(reports, separators=(',', ':')).encode()
         pathlib.Path(args.output).write_bytes(payload)
         encoded = base64.b64encode(gzip.compress(payload, mtime=0)).decode()
-        chunks = [encoded[i:i + 12000] for i in range(0, len(encoded), 12000)]
-        if len(chunks) > 10:
+        chunks = [encoded[i:i + 3800] for i in range(0, len(encoded), 3800)]
+        if len(chunks) > (40 if args.startup else 10):
             raise ValueError('Resource reader report exceeds annotation limit')
         for index, chunk in enumerate(chunks):
+            if index // 10 != args.annotation_part:
+                continue
             title = 'Startup updater' if args.startup else 'Resource readers'
             print(f'::notice title={title} {index + 1}/{len(chunks)}::{chunk}')
         return
@@ -403,4 +404,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as ex:
+        print(f'::error title=APK inspection failed::{type(ex).__name__}: {ex}')
+        raise

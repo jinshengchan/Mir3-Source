@@ -348,7 +348,7 @@ def main():
         payload = json.dumps(reports, separators=(',', ':')).encode()
         pathlib.Path(args.output).write_bytes(payload)
         encoded = base64.b64encode(gzip.compress(payload, mtime=0)).decode()
-        chunks = [encoded[i:i + 3800] for i in range(0, len(encoded), 3800)]
+        chunks = [encoded[i:i + 12000] for i in range(0, len(encoded), 12000)]
         if len(chunks) > 10:
             raise ValueError('Resource reader report exceeds annotation limit')
         for index, chunk in enumerate(chunks):

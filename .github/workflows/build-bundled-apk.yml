@@ -1,0 +1,93 @@
+name: Build bundled Android APK
+
+on:
+  push:
+    branches: [codex/bundled-apk-delivery]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      BUNDLE_DIR: ${{ github.workspace }}/.build/bundled-assets
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.401'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android tools
+        run: |
+          sudo dotnet workload install android --skip-manifest-update
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-34' 'build-tools;34.0.0'
+      - name: Test resource installer
+        run: dotnet run --project tests/BundledResources.Tests/BundledResources.Tests.csproj
+      - name: Get authorized sample resources
+        run: |
+          python3 -m pip install 'gdown==5.2.0'
+          mkdir -p .build
+          gdown 'https://drive.google.com/uc?id=1Fts3QP26o2YbJ08Pb99GNv6QiHv86D8S' -O .build/sample.apk
+          python3 - <<'PY'
+          import os, pathlib, shutil, zipfile
+          source = pathlib.Path('.build/sample.apk')
+          root = pathlib.Path(os.environ['BUNDLE_DIR'])
+          count = 0
+          with zipfile.ZipFile(source) as apk:
+              for item in apk.infolist():
+                  if item.filename != 'assets/Data.zip' and not item.filename.startswith('assets/LocalUpdate/'):
+                      continue
+                  relative = pathlib.PurePosixPath(item.filename.removeprefix('assets/'))
+                  if relative.is_absolute() or '..' in relative.parts:
+                      raise ValueError('Invalid resource path')
+                  target = root.joinpath(*relative.parts)
+                  if item.is_dir():
+                      target.mkdir(parents=True, exist_ok=True)
+                  else:
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      with apk.open(item) as stream, target.open('wb') as output:
+                          shutil.copyfileobj(stream, output)
+                      count += 1
+          source.unlink()
+          print('Extracted bundled resource files:', count)
+          if count != 156:
+              raise ValueError('Sample resource layout changed; review before building')
+          PY
+      - name: Build arm64 test APK
+        run: |
+          bash tools/build-bundled-apk.sh "$BUNDLE_DIR" \
+            -p:AndroidSdkDirectory="$ANDROID_HOME" \
+            -p:JavaSdkDirectory="$JAVA_HOME" \
+            -p:RuntimeIdentifier=android-arm64 \
+            -p:RunAOTCompilation=False -p:AotAssemblies=False \
+            -p:AndroidEnableProfiledAot=False -p:PublishTrimmed=False
+      - name: Verify package and signature
+        run: |
+          python3 - <<'PY'
+          import pathlib, zipfile
+          apk = pathlib.Path('Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk')
+          with zipfile.ZipFile(apk) as package:
+              assets = [i for i in package.infolist() if i.filename == 'assets/Data.zip' or i.filename.startswith('assets/LocalUpdate/')]
+              assert len(assets) == 156
+              assert not any(i.filename.endswith(('.partial', '.tmp')) for i in package.infolist())
+              assert package.testzip() is None
+          print('Verified APK size:', apk.stat().st_size)
+          PY
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
+          sha256sum Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mir3-bundled-arm64-test-apk
+          path: |
+            Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
+            .build/APK-SHA256.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1

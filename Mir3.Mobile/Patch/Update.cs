@@ -30,6 +30,23 @@ namespace Patch
 
         public async Task CheckPatchAsync(bool repair)
         {
+#if ANDROID
+            // Install the APK snapshot before asking the update server for newer files.
+            var bundled = Task.Run(() => BundledResources.Install(
+                Game1.Native.GetFileStream, ClientPath, repair, text => Vm.LoadText = text));
+            while (!bundled.IsCompleted)
+            {
+                Vm.Update();
+                await Task.Delay(100);
+            }
+            try { await bundled; }
+            catch (Exception ex)
+            {
+                CEnvir.SaveError(ex.ToString());
+                Vm.LoadText = "内置资源安装失败，请检查可用空间后重试。";
+                return;
+            }
+#endif
             //第一步
             // 1. Android环境会判断apk版本，然后更新apk包
             // 2. 在没有Map目录的时候 先更新基础包
@@ -70,6 +87,11 @@ namespace Patch
             if ((!Directory.Exists(Path.Combine(CEnvir.MobileClientPath, "Map"))) ||
                 (pkginfo != null && currentpkginfo != null && !IsMatch(pkginfo.BaseZipCheckSum, currentpkginfo.BaseZipCheckSum)))
             {
+                if (pkginfo == null)
+                {
+                    Vm.LoadText = "缺失基础包且无法连接更新服务。";
+                    return;
+                }
                 Vm.Update();
                 var maptask = Task.Run(() =>
                 {
@@ -230,7 +252,7 @@ namespace Patch
                         {
                             var pinfo = new PatchInformation(reader);
 
-                            if (!File.Exists(pinfo.FileName)) continue;
+                            if (!File.Exists(Path.Combine(ClientPath, pinfo.FileName.Replace("\\", "/")))) continue;
                             list.Add(pinfo);
                         }
 

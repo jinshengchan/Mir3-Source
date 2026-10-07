@@ -57,10 +57,24 @@
     <Folder Include="Hooks\" />
     <Folder Include="Helpers\" />
   </ItemGroup>
+  <PropertyGroup>
+    <!-- ZIP/gzip assets are already compressed; keep them seekable in the APK. -->
+    <AndroidStoreUncompressedFileExtensions>$(AndroidStoreUncompressedFileExtensions);.zip;.gz</AndroidStoreUncompressedFileExtensions>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(BundledResourceDirectory)' != ''">
+    <AndroidAsset Remove="Assets\Data.zip;Assets\LocalUpdate\**\*" />
+    <AndroidAsset Include="$(BundledResourceDirectory)\Data.zip" Link="Assets\Data.zip" />
+    <AndroidAsset Include="$(BundledResourceDirectory)\LocalUpdate\**\*" Exclude="$(BundledResourceDirectory)\LocalUpdate\**\*.partial;$(BundledResourceDirectory)\LocalUpdate\**\*.tmp" Link="Assets\LocalUpdate\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <Target Name="ValidateBundledResources" BeforeTargets="PrepareForBuild" Condition="'$(BundledResourceDirectory)' != ''">
+    <Error Condition="!Exists('$(BundledResourceDirectory)/Data.zip')" Text="BundledResourceDirectory must contain Data.zip." />
+    <Error Condition="!Exists('$(BundledResourceDirectory)/LocalUpdate/DataAdd.zip')" Text="BundledResourceDirectory must contain a complete LocalUpdate/DataAdd.zip." />
+    <Error Condition="!Exists('$(BundledResourceDirectory)/LocalUpdate/PList.Bin') Or !Exists('$(BundledResourceDirectory)/LocalUpdate/APKVersion.bin')" Text="BundledResourceDirectory must contain LocalUpdate manifests." />
+  </Target>
   <ItemGroup>
     <None Remove="Helpers\" />
   </ItemGroup>
-  <Target Name="RestoreDotnetTools" BeforeTargets="Restore">
+  <Target Name="RestoreDotnetTools" BeforeTargets="Restore" Condition="Exists('..\.config\dotnet-tools.json')">
     <Message Text="Restoring dotnet tools" Importance="High" />
     <Exec Command="dotnet tool restore" />
   </Target>

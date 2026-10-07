@@ -204,6 +204,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)IUI.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Patch\PKGInformation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Patch\Update.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Patch\BundledResources.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Patch\PatchInformation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Patch\PatchViewModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Scenes\StartMobileScene.cs" />

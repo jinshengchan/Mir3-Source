@@ -36,8 +36,12 @@ namespace Mir3.Droid
 
         public Stream GetFileStream(string path)
         {
-            var stream = Game.Activity.Assets!.Open(path);
-            return stream;
+            try { return Game.Activity.Assets!.Open(path); }
+            catch (Java.IO.FileNotFoundException ex)
+            {
+                // Keep optional bundled assets compatible with online-only APKs.
+                throw new FileNotFoundException("Android asset not found: " + path, ex);
+            }
         }
 
         public void HideInputField()
@@ -54,43 +58,13 @@ namespace Mir3.Droid
             if (Config.VersionCode != code || Config.VersionName != name)
 #endif
             {
-                using (var stream = GetFileStream("Data.zip"))
-                {
-                    using (var arc = new ZipArchive(stream))
-                    {
-                        try
-                        {
-                            arc.ExtractToDirectory(CEnvir.MobileClientPath, true);
-                        }
-                        finally
-                        {
-                            ConfigReader.Load();
-                            Config.VersionCode = code;
-                            Config.VersionName = name;
-                            ConfigReader.Save();
-                        }
-                    }
-                }
+                Patch.BundledResources.InstallZip(() => GetFileStream("Data.zip"), CEnvir.MobileClientPath);
+                // Advance the APK version only after the bootstrap archive was installed.
+                ConfigReader.Load();
+                Config.VersionCode = code;
+                Config.VersionName = name;
+                ConfigReader.Save();
 
-                //DataAdd.zip 不打包了，放到更新服务器上了
-                //if (!Directory.Exists(Path.Combine(CEnvir.MobileClientPath, "Data", "Map Data")))
-                //{
-                //    using (var stream = GetFileStream("DataAdd.zip"))
-                //    {
-                //        using (var arc = new ZipArchive(stream))
-                //        {
-                //            try
-                //            {
-                //                arc.ExtractToDirectory(CEnvir.MobileClientPath, true);
-                //            }
-                //            catch
-                //            {
-                //                CEnvir.SaveError("Data-add 解压失败");
-                //            }
-
-                //        }
-                //    }
-                //}
             }
 #if DEBUG
             Config.DebugLabel = true;
@@ -188,4 +162,3 @@ namespace Mir3.Droid
         }
     }
 }
-

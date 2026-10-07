@@ -739,6 +739,8 @@ namespace Client.Envir
                     DXManager.MemoryClear();
             }
 
+            if (DXControl.ActiveScene is GameScene)
+                Client.Helpers.LibraryHelper.ApplyResourceRefreshes();
             Connection?.Process();
 
             DXControl.ActiveScene?.Process();

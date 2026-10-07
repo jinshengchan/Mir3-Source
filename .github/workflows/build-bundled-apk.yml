@@ -67,6 +67,8 @@ jobs:
           PY
       - name: Verify actual source resource checksums
         run: python3 tools/verify-bundled-resources.py "$BUNDLE_DIR"
+      - name: Test resource header recovery against real bundled metadata
+        run: dotnet run --project tests/ResourceHeaders.Tests/ResourceHeaders.Tests.csproj -- "$BUNDLE_DIR"
       - name: Set test APK version
         run: |
           python3 - <<'PYCODE'

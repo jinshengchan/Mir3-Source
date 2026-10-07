@@ -208,3 +208,38 @@ at most 60 map-cache snapshots and 120 movement snapshots to
 phone report actual animation frames and pending resources. Android compilation
 and protocol checks are available locally; actual visual behavior needs phone
 verification because this executor has no attached Android device.
+
+
+The follow-up phone log contains 1,907 image response length mismatches, 1,730
+DXT read-past-end exceptions and 3,072 invalid Deflate exceptions across three
+sessions. Wood/Tilesc, Tilesc, Housesc, Wallsc, SmObjectsc, Tiles30c and Cliffsc
+are affected; weapon/ shield decoding also fails. Motion records show frame
+indices advancing. Comparing the original APK IL confirmed identical image
+record constructors, micro image response parsing, pixel decoding and Deflate
+algorithms; the old bundled/saved library indices therefore need checking
+against the currently served data, not a relaxed byte-count check.
+
+Image downloads now require both length and storage position to match the local
+index. A mismatch, invalid compressed payload or truncated DXT payload requests
+a current micro-server header, with one outstanding request and a one-minute
+cooldown per library. `LibraryHeaderValidator` parses the full metadata, including
+encrypted v2/v3 and legacy Zircon layouts, and checks lengths, counts and payload
+bounds. A rejected server header leaves the existing resource intact. A valid
+header is written to a temporary sparse file, then installed atomically on the
+game thread; matching library readers and map textures are invalidated and the
+old queued disk writes are cleared. New image requests use the current positions
+and sizes. Shared synchronization protects cache lists and prevents the timer
+writer from modifying a file during replacement. Decode errors are retried no
+more than once per second, avoiding the prior per-frame exception storm.
+Each replacement also advances a library generation, rejecting image responses
+from requests that began before the replacement so they cannot repopulate the
+new file with stale cache data.
+
+The 23 recovery checks include five real bundled headers, invalid metadata,
+server response length/position rejection, successful replacement and subsequent
+image fetch, duplicate refresh suppression, map invalidation and preservation of
+old files on a malformed server response. The HTTP recovery test uses an
+in-process loopback fixture and links the real helper, parser and validator.
+Nonlocal destinations retain the inherited proxy. CI runs these checks against
+the actual extracted bundle. The test login label is `资源索引修复`; phone
+verification and successful hydration from the live micro server remain required.

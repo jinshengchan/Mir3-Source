@@ -78,6 +78,20 @@ namespace Client.Envir
             _mapCacheDrawIncomplete = false;
         }
 
+        // Called on the game thread after a validated replacement is ready.
+        public void ResetResourceReader()
+        {
+            lock (LoadLocker)
+            {
+                _BReader?.Dispose(); _BReader = null;
+                _FStream?.Dispose(); _FStream = null;
+                Images = null;
+                Loaded = Loading = false;
+                HeadFileStat = 0;
+                NextSyncTime = DateTime.MinValue;
+            }
+        }
+
         public static bool EndMapCacheRefresh()
         {
             bool incomplete = _mapCacheDrawIncomplete;
@@ -1141,6 +1155,7 @@ namespace Client.Envir
         {
             if (Position == 0) return;
             if (Width == 1 && Height == 1) return;
+            if (Time.Now < NextSyncTime || LibraryHelper.IsResourceRefreshing(fileName)) return;
 
             byte[] pendingBuffer;
             lock (ImageDataLocker)
@@ -1163,6 +1178,8 @@ namespace Client.Envir
                         ImageFileStat = 0;
                     NextSyncTime = Time.Now.AddSeconds(1);
                     CEnvir.SaveError(fileName + "  " + index.ToString() + "\r\n" + ex.ToString());
+                    if (ex is InvalidDataException || ex is EndOfStreamException)
+                        LibraryHelper.RequestResourceRefresh(fileName, "downloaded image decode failed");
                 }
 
                 return;
@@ -1208,7 +1225,7 @@ namespace Client.Envir
                                             ImageFileStat = 2; // 2为开始http get数据
                                         }
 
-                                        byte[] downloadedData = await LibraryHelper.GetImageAsync(fileName, index, ImageDataSize + ShadowDataSize + OverlayDataSize);
+                                        byte[] downloadedData = await LibraryHelper.GetImageAsync(fileName, index, ImageDataSize + ShadowDataSize + OverlayDataSize, Position);
                                         if (downloadedData?.Length > 0)
                                         {
                                             lock (ImageDataLocker)
@@ -1256,7 +1273,10 @@ namespace Client.Envir
                 }
                 catch (Exception ex)
                 {
+                    NextSyncTime = Time.Now.AddSeconds(1);
                     CEnvir.SaveError(fileName + "  " + index.ToString() + "\r\n" + ex.ToString());
+                    if (ex is InvalidDataException || ex is EndOfStreamException)
+                        LibraryHelper.RequestResourceRefresh(fileName, "cached image decode failed");
                 }
 
                 buffer = null;

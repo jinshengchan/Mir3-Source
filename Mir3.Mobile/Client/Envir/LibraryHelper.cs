@@ -9,6 +9,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
@@ -52,6 +53,87 @@ namespace Client.Helpers
 
         public static readonly SemaphoreSlim Semaphore;
         private const int LimitTask = 10;
+        private static readonly object ResourceStateSync = new object();
+        private static readonly object ResourceDataSync = new object();
+        private static readonly Dictionary<string, long> ResourceGeneration = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, DateTime> ResourceRetry = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> ResourcePending = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentQueue<KeyValuePair<string, MicroLibraryHeader>> ResourceReady = new ConcurrentQueue<KeyValuePair<string, MicroLibraryHeader>>();
+
+        public static bool IsResourceRefreshing(string name)
+        {
+            lock (ResourceStateSync) return ResourcePending.Contains(name);
+        }
+
+        public static void RequestResourceRefresh(string name, string reason)
+        {
+            lock (ResourceStateSync)
+            {
+                if (ResourcePending.Contains(name) || (ResourceRetry.TryGetValue(name, out var retry) && DateTime.UtcNow < retry)) return;
+                ResourcePending.Add(name);
+                ResourceRetry[name] = DateTime.UtcNow.AddMinutes(1);
+            }
+            ConnectionDiagnostics.Record($"resource-refresh requested file={name} reason={reason}");
+            Task.Run(async () =>
+            {
+                bool queued = false;
+                try
+                {
+                    string clean = name.Replace("./", "").Replace(".\\", "").Replace('\\', '/');
+                    string file = Path.GetFileName(clean);
+                    string directory = clean.Substring(0, clean.Length - file.Length).TrimEnd('/').Replace('/', '_');
+                    using var response = await HttpClientGet($"libheader/{HttpUtility.UrlPathEncode(directory)}/{HttpUtility.UrlPathEncode(file)}");
+                    if (response == null) throw new IOException("No resource header response.");
+                    using var reader = new BinaryReader(response);
+                    var header = new MicroLibraryHeader(reader);
+                    LibraryHeaderValidator.Validate(header.HeaderBytes, header.TotalLength);
+                    ResourceReady.Enqueue(new KeyValuePair<string, MicroLibraryHeader>(name, header));
+                    queued = true;
+                    ConnectionDiagnostics.Record($"resource-refresh validated file={name} headerBytes={header.HeaderBytes.Length} totalBytes={header.TotalLength}");
+                }
+                catch (Exception ex) { CEnvir.SaveError($"Resource header refresh failed: {name}: {ex.Message}"); }
+                finally { if (!queued) lock (ResourceStateSync) ResourcePending.Remove(name); }
+            });
+        }
+
+        // File replacement and reader invalidation happen on the game thread.
+        public static void ApplyResourceRefreshes()
+        {
+            if (!ResourceReady.TryDequeue(out var item)) return;
+            string temp = null;
+            try
+            {
+                string root = Path.GetFullPath(CEnvir.MobileClientPath).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string full = Path.GetFullPath(Path.Combine(root, item.Key.Replace('\\', '/')));
+                if (!full.StartsWith(root, StringComparison.Ordinal)) throw new IOException("Resource path escapes client directory.");
+                temp = full + ".refresh-" + Guid.NewGuid().ToString("N");
+                Directory.CreateDirectory(Path.GetDirectoryName(full));
+                using (var output = File.Create(temp))
+                {
+                    output.SetLength(item.Value.TotalLength);
+                    output.Write(item.Value.HeaderBytes, 0, item.Value.HeaderBytes.Length);
+                }
+                lock (ResourceDataSync)
+                {
+                    foreach (var library in CEnvir.LibraryList.Values.Distinct())
+                        if (library != null && Path.GetFullPath(library.FullPathName) == full)
+                            library.ResetResourceReader();
+                    SaveImageList.TryRemove(item.Key, out _);
+                    File.Move(temp, full, true);
+                    ResourceGeneration.TryGetValue(item.Key, out var generation);
+                    ResourceGeneration[item.Key] = generation + 1;
+                }
+                var map = Client.Scenes.GameScene.Game?.MapControl;
+                if (map != null) { map.TextureValid = false; map.FLayer.TextureValid = false; }
+                ConnectionDiagnostics.Record($"resource-refresh applied file={item.Key}; requesting images with current index");
+            }
+            catch (Exception ex) { CEnvir.SaveError($"Resource header apply failed: {item.Key}: {ex.Message}"); }
+            finally
+            {
+                if (temp != null && File.Exists(temp)) File.Delete(temp);
+                lock (ResourceStateSync) ResourcePending.Remove(item.Key);
+            }
+        }
 
         public static DXMessageBox Message = DXMessageBox.Show("微端服务连接失败，将影响游戏体验。\n15秒后将重新连接！", "错误");
 
@@ -116,6 +198,7 @@ namespace Client.Helpers
                 MicroServerActive = CheckServerOnline();
             }
 
+            lock (ResourceDataSync)
             foreach (var x in SaveImageList)
             {
                 if (System.IO.File.Exists(CEnvir.MobileClientPath + x.Key) && x.Value?.Count > 0)
@@ -225,9 +308,11 @@ namespace Client.Helpers
         /// <param name="index"></param>
         /// <param name="length"></param>
         /// <returns></returns>
-        public static async Task<byte[]> GetImageAsync(string fileName, int index, int length)
+        public static async Task<byte[]> GetImageAsync(string fileName, int index, int length, int position)
         {
             var realName = fileName;
+            long generation;
+            lock (ResourceDataSync) ResourceGeneration.TryGetValue(realName, out generation);
             fileName = fileName.Replace("./", "");
             fileName = fileName.Replace(".\\", "");
             fileName = fileName.Replace("\\", "/");
@@ -245,19 +330,25 @@ namespace Client.Helpers
                     using (BinaryReader br = new BinaryReader(result))
                     {
                         MicroLibraryImage zl = new MicroLibraryImage(br);
-                        if (zl == null || zl.ImageData?.Length != length)
+                        if (zl == null || zl.ImageData?.Length != length || zl.Postion != position)
                         {
-                            CEnvir.SaveError($"素材：{api},下载资源失败,原因：服务端素材有更新，不匹配。");
+                            CEnvir.SaveError($"素材：{api},索引不匹配：expectedBytes={length}, actualBytes={zl?.ImageData?.Length}, expectedPosition={position}, actualPosition={zl?.Postion}。");
+                            RequestResourceRefresh(realName, "server image length/position differs from local index");
                             return null;
                         }
 
-                        if (!SaveImageList.TryGetValue(realName, out var list))
+                        lock (ResourceDataSync)
                         {
-                            list = new List<MicroLibraryImage>() { zl };
-                            SaveImageList[realName] = list;
+                            ResourceGeneration.TryGetValue(realName, out var currentGeneration);
+                            if (currentGeneration != generation) return null;
+                            if (!SaveImageList.TryGetValue(realName, out var list))
+                            {
+                                list = new List<MicroLibraryImage>() { zl };
+                                SaveImageList[realName] = list;
+                            }
+                            else
+                                SaveImageList[realName].Add(zl);
                         }
-                        else
-                            SaveImageList[realName].Add(zl);
 
                         return zl.ImageData;
                     }

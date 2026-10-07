@@ -152,9 +152,18 @@ def main():
                 print(packet['id'], packet['namespace'] + '.' + packet['name'],
                       ', '.join(prop['name'] for prop in packet['properties']))
     if args.annotations:
-        encoded = base64.b64encode(gzip.compress(payload, mtime=0)).decode()
+        # A workflow step accepts at most ten notice annotations. Keep the
+        # downloadable report complete; publish only enums relevant to login.
+        login_enums = {'LoginResult', 'NewAccountResult', 'ChangePasswordResult',
+                       'DisconnectReason', 'Platform', 'GameStage'}
+        summaries = [{**report, 'enums': {name: values for name, values in report['enums'].items()
+                      if name.rsplit('.', 1)[-1] in login_enums}} for report in reports]
+        summary = json.dumps(summaries, ensure_ascii=True, separators=(',', ':')).encode()
+        encoded = base64.b64encode(gzip.compress(summary, mtime=0)).decode()
         # GitHub truncates individual annotation messages at 4096 characters.
-        chunks = [encoded[i:i + 3000] for i in range(0, len(encoded), 3000)]
+        chunks = [encoded[i:i + 3800] for i in range(0, len(encoded), 3800)]
+        if len(chunks) > 10:
+            raise ValueError('Protocol summary exceeds annotation limit')
         for index, chunk in enumerate(chunks):
             print(f'::notice title=Original protocol {index + 1}/{len(chunks)}::{chunk}')
 

@@ -20,6 +20,12 @@ jobs:
       BUNDLE_DIR: ${{ github.workspace }}/.build/bundled-assets
     steps:
       - uses: actions/checkout@v4
+      - name: Report failing build commands
+        run: |
+          cat > "$RUNNER_TEMP/mir3-build-errors.sh" <<'SH'
+          trap 'printf "::error title=Build command failed::Line %s: %s\n" "$LINENO" "$BASH_COMMAND"' ERR
+          SH
+          echo "BASH_ENV=$RUNNER_TEMP/mir3-build-errors.sh" >> "$GITHUB_ENV"
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.401'
@@ -66,7 +72,15 @@ jobs:
           PY
       - name: Compile repository server and verify its actual protocol
         run: |
-          dotnet build ServerLibrary/ServerLibrary.csproj -c Release -p:CopyLocalLockFileAssemblies=true
+          if ! dotnet build ServerLibrary/ServerLibrary.csproj -c Release -p:CopyLocalLockFileAssemblies=true > .build/server-build.log 2>&1; then
+            python3 - <<'PY'
+          import pathlib
+          for line in pathlib.Path('.build/server-build.log').read_text().splitlines():
+              if 'error ' in line:
+                  print('::error title=Repository server build::' + line[:1500])
+          PY
+            exit 1
+          fi
           python3 tools/generate-repository-protocol.py ServerLibrary/bin/Release/netstandard2.0/Library.dll \
             --report .build/REPOSITORY-PROTOCOL.json --order Mir3.Mobile/RepositoryServerPacketOrder.cs --check
           python3 tools/verify-runtime-packet-order.py .build/REPOSITORY-PROTOCOL.json --repository \

@@ -243,3 +243,17 @@ in-process loopback fixture and links the real helper, parser and validator.
 Nonlocal destinations retain the inherited proxy. CI runs these checks against
 the actual extracted bundle. The test login label is `资源索引修复`; phone
 verification and successful hydration from the live micro server remain required.
+
+The new-server test build targets game `118.25.67.175:7000`, micro resources
+`118.25.67.175:8000` and updates `http://118.25.67.175:7080/`. The test-only
+native startup applies these endpoints after bootstrap configuration is loaded,
+forces network configuration on and uses update username `mobile`. It preserves
+an existing phone configuration's private update password across bootstrap
+extraction; a fresh installation must set the update password in `Mir3.ini`.
+No new update credential is stored in source control. CI stamps the APK version
+`1.0.0.1` as supplied for this server and displays `新服务器测试` on login.
+This lower Android versionCode may require uninstalling an older test APK;
+back up phone configuration before doing so. Packet ordering remains matched to
+the original inspected Android APK. The new server's binary and actual login
+have not been verified; missing server-side handlers require a separate protocol
+comparison, not a claim that changing endpoints resolves them.

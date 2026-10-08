@@ -51,6 +51,11 @@ namespace Mir3.Droid
 
         public void InitData()
         {
+#if BUNDLED_RESOURCE_TEST
+            // Preserve the phone's private update credential across bootstrap extraction.
+            bool hasLocalConfig = File.Exists(Path.Combine(CEnvir.MobileClientPath, "Mir3.ini"));
+            string updatePassword = Config.Password;
+#endif
             var code = MainActivity.Main.GetVersionCode();
             var name = MainActivity.Main.GetVersionName();
 #if DEBUG
@@ -66,6 +71,19 @@ namespace Mir3.Droid
                 ConfigReader.Save();
 
             }
+#if BUNDLED_RESOURCE_TEST
+            Config.UseNetworkConfig = true;
+            Config.IPAddress = "118.25.67.175";
+            Config.Port = 7000;
+            Config.MicroClientIP = "118.25.67.175";
+            Config.MicroClientPort = 8000;
+            Config.Host = "http://118.25.67.175:7080/";
+            Config.UseLogin = true;
+            Config.UserName = "mobile";
+            if (hasLocalConfig) Config.Password = updatePassword;
+            ConfigReader.Save();
+            Mir3.Mobile.ConnectionDiagnostics.Record("test-server game=118.25.67.175:7000 micro=118.25.67.175:8000 update=http://118.25.67.175:7080/");
+#endif
 #if DEBUG
             Config.DebugLabel = true;
 #endif

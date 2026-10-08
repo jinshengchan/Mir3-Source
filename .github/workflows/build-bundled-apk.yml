@@ -2,7 +2,7 @@ name: Build bundled Android APK
 
 on:
   push:
-    branches: [codex/bundled-apk-delivery]
+    branches: [codex/bundled-apk-delivery, codex/resource-fixes-testing-20261007]
     paths-ignore:
       - tools/inspect-apk-protocol.py
       - .github/workflows/inspect-original-protocol.yml
@@ -76,8 +76,8 @@ jobs:
           ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
           path = 'Mir3.Droid/AndroidManifest.xml'
           tree = ET.parse(path)
-          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionCode', '26')
-          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionName', '1.3.8')
+          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionCode', '1')
+          tree.getroot().set('{http://schemas.android.com/apk/res/android}versionName', '1.0.0')
           tree.write(path, encoding='utf-8', xml_declaration=True)
           PYCODE
       - name: Build arm64 test APK
@@ -112,7 +112,7 @@ jobs:
           python3 - <<'PY'
           import pathlib
           metadata = pathlib.Path('.build/APK-METADATA.txt').read_text()
-          assert "versionCode='26'" in metadata and "versionName='1.3.8'" in metadata
+          assert "versionCode='1'" in metadata and "versionName='1.0.0'" in metadata
           PY
           sha256sum Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-SHA256.txt
       - uses: actions/upload-artifact@v4

@@ -50,6 +50,7 @@ jobs:
           report = json.loads((root / 'combined-report.json').read_text())
           integrity = report['integrity']
           print('::notice title=Combined update integrity::' + json.dumps(integrity, ensure_ascii=False))
+          print('::notice title=Alternative base ZIP checks::' + json.dumps(integrity.get('alternative_base_packages', [])))
           print('::notice title=Combined critical missing files::' + '; '.join(report['combined_critical_missing']))
           print('::notice title=Combined catalog gaps::' + str(len(report['combined_source_catalog_missing'])))
           print('::notice title=Combined title resource::' + ('Data/Title.Zl absent' if 'Data/Title.Zl' in report['combined_source_catalog_missing'] else 'Title file present'))

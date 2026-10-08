@@ -145,6 +145,22 @@ def inspect_update(archive, repository, output):
                  'actual_bytes': actual_length, 'expected_md5': expected_hash.hex(),
                  'actual_md5': actual_hash.hex() if actual_hash else None,
                  'patches_verified': verified, 'patches_declared': len(patches), 'issues': issues}
+    alternatives = []
+    for candidate in (update / 'DataAdd.zip.gz', update / 'Data-DataAdd.zip.gz'):
+        if not candidate.is_file():
+            continue
+        hashed = hashlib.md5()
+        size = 0
+        try:
+            with gzip.open(candidate, 'rb') as stream:
+                for block in iter(lambda: stream.read(1024 * 1024), b''):
+                    size += len(block)
+                    hashed.update(block)
+            alternatives.append({'file': candidate.name, 'expanded_bytes': size, 'md5': hashed.hexdigest(),
+                                 'matches_manifest': size == expected_length and hashed.digest() == expected_hash})
+        except Exception as error:
+            alternatives.append({'file': candidate.name, 'error': str(error)})
+    integrity['alternative_base_packages'] = alternatives
     (output / 'update-integrity.json').write_text(json.dumps(integrity, indent=2) + '\n')
     try:
         inner = inspect(base, repository, output / 'base')
@@ -157,6 +173,7 @@ def inspect_update(archive, repository, output):
     critical = [p for p in inner['critical_missing'] if p.lower() not in installed]
     result = {'outer': {k: v for k, v in outer.items() if k != 'entries'}, 'integrity': integrity,
               'combined_critical_missing': critical, 'combined_source_catalog_missing': missing,
+              'base_groups': inner.get('groups'),
               'update_files': [{'name': str(p.relative_to(update)), 'size': p.stat().st_size} for p in update.rglob('*') if p.is_file()]}
     (output / 'combined-report.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
     lines = ['# Combined base and update resources', '',

@@ -53,11 +53,28 @@ jobs:
           print('::notice title=Alternative base ZIP checks::' + json.dumps(integrity.get('alternative_base_packages', [])))
           print('::notice title=Combined critical missing files::' + '; '.join(report['combined_critical_missing']))
           print('::notice title=Combined catalog gaps::' + str(len(report['combined_source_catalog_missing'])))
-          print('::notice title=Complete missing source resource list::' + json.dumps(report['combined_source_catalog_missing'], ensure_ascii=False))
           print('::notice title=Combined title resource::' + ('Data/Title.Zl absent' if 'Data/Title.Zl' in report['combined_source_catalog_missing'] else 'Title file present'))
           print('::notice title=Empty archive files::' + '; '.join(report['outer']['zero_length_files']))
           files = report['update_files']
           print('::notice title=Update file inventory::' + '; '.join(p['name'] for p in files))
+          PY
+      - name: List missing resource filenames part 1
+        run: |
+          python3 - <<'PY'
+          import pathlib, runpy
+          runpy.run_path('tools/inspect-resource-package.py')['print_missing_parts'](pathlib.Path('.build/resource-inspection/combined-report.json'), 0)
+          PY
+      - name: List missing resource filenames part 2
+        run: |
+          python3 - <<'PY'
+          import pathlib, runpy
+          runpy.run_path('tools/inspect-resource-package.py')['print_missing_parts'](pathlib.Path('.build/resource-inspection/combined-report.json'), 1)
+          PY
+      - name: List missing resource filenames part 3
+        run: |
+          python3 - <<'PY'
+          import pathlib, runpy
+          runpy.run_path('tools/inspect-resource-package.py')['print_missing_parts'](pathlib.Path('.build/resource-inspection/combined-report.json'), 2)
           PY
       - uses: actions/upload-artifact@v4
         with:

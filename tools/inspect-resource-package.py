@@ -243,6 +243,21 @@ def prepare(archive, bootstrap, repository, output, assets):
     return report
 
 
+def print_missing_parts(report_path, batch):
+    report = json.loads(report_path.read_text())
+    parts = []
+    current = []
+    for name in report['combined_source_catalog_missing']:
+        if current and len(json.dumps(current + [name], ensure_ascii=False)) > 2800:
+            parts.append(current)
+            current = []
+        current.append(name)
+    if current:
+        parts.append(current)
+    for i in range(batch * 8, min((batch + 1) * 8, len(parts))):
+        print(f'::notice title=Missing resource paths part {i + 1:02d} of {len(parts):02d}::' + json.dumps(parts[i], ensure_ascii=False))
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('archive', type=pathlib.Path)

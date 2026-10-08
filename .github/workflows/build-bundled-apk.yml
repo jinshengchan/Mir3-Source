@@ -44,37 +44,29 @@ jobs:
         run: dotnet run --project tests/BundledResources.Tests/BundledResources.Tests.csproj
       - name: Test zero-frame title and effect animation
         run: dotnet run --project tests/MirEffects.Tests/MirEffects.Tests.csproj
-      - name: Get authorized sample resources
+      - name: Get replacement resources and APK startup assets
         run: |
           python3 -m pip install 'gdown==5.2.0' 'dnfile==0.18.0' 'lz4==4.4.5'
           mkdir -p .build
           gdown 'https://drive.google.com/uc?id=1Fts3QP26o2YbJ08Pb99GNv6QiHv86D8S' -O .build/sample.apk
-          python3 tools/inspect-apk-protocol.py .build/sample.apk --output .build/ORIGINAL-PROTOCOL.json
           python3 - <<'PY'
-          import os, pathlib, shutil, zipfile
+          import pathlib, zipfile
           source = pathlib.Path('.build/sample.apk')
-          root = pathlib.Path(os.environ['BUNDLE_DIR'])
-          count = 0
           with zipfile.ZipFile(source) as apk:
-              for item in apk.infolist():
-                  if item.filename != 'assets/Data.zip' and not item.filename.startswith('assets/LocalUpdate/'):
-                      continue
-                  relative = pathlib.PurePosixPath(item.filename.removeprefix('assets/'))
-                  if relative.is_absolute() or '..' in relative.parts:
-                      raise ValueError('Invalid resource path')
-                  target = root.joinpath(*relative.parts)
-                  if item.is_dir():
-                      target.mkdir(parents=True, exist_ok=True)
-                  else:
-                      target.parent.mkdir(parents=True, exist_ok=True)
-                      with apk.open(item) as stream, target.open('wb') as output:
-                          shutil.copyfileobj(stream, output)
-                      count += 1
+              pathlib.Path('.build/bootstrap.zip').write_bytes(apk.read('assets/Data.zip'))
           source.unlink()
-          print('Extracted bundled resource files:', count)
-          if count != 156:
-              raise ValueError('Sample resource layout changed; review before building')
           PY
+          gdown 'https://drive.google.com/uc?id=11hocChF478kUzQB45F8jrcLIWAVKRC4X' -O .build/replacement.archive
+          python3 - <<'PY'
+          import os, pathlib, runpy
+          scope = runpy.run_path('tools/inspect-resource-package.py')
+          try:
+              scope['prepare'](pathlib.Path('.build/replacement.archive'), pathlib.Path('.build/bootstrap.zip'), pathlib.Path('.'), pathlib.Path('.build/resource-inspection'), pathlib.Path(os.environ['BUNDLE_DIR']))
+          except Exception as error:
+              print('::error title=Replacement bundle rejected::' + str(error).replace('\n', '%0A'))
+              raise
+          PY
+          cat .build/resource-inspection/combined-report.md >> "$GITHUB_STEP_SUMMARY"
       - name: Compile repository server and verify its actual protocol
         run: |
           if ! dotnet build ServerLibrary/ServerLibrary.csproj -c Release -p:CopyLocalLockFileAssemblies=true > .build/server-build.log 2>&1; then
@@ -122,7 +114,10 @@ jobs:
           apk = pathlib.Path('Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk')
           with zipfile.ZipFile(apk) as package:
               assets = [i for i in package.infolist() if i.filename == 'assets/Data.zip' or i.filename.startswith('assets/LocalUpdate/')]
-              assert len(assets) == 156
+              source = pathlib.Path(__import__('os').environ['BUNDLE_DIR'])
+              expected = ['assets/' + str(p.relative_to(source)).replace('\\', '/') for p in source.rglob('*') if p.is_file()]
+              assert sorted(i.filename for i in assets) == sorted(expected)
+              print('Verified replacement resource assets:', len(assets))
               assert not any(i.filename.endswith(('.partial', '.tmp')) for i in package.infolist())
               assert package.testzip() is None
           print('Verified APK size:', apk.stat().st_size)
@@ -149,7 +144,8 @@ jobs:
             .build/APK-SHA256.txt
             .build/APK-METADATA.txt
             .build/BUNDLED-INTEGRITY.json
-            .build/ORIGINAL-PROTOCOL.json
+            .build/resource-inspection/combined-report.json
+            .build/resource-inspection/combined-report.md
             .build/REPOSITORY-PROTOCOL.json
             .build/APK-PROTOCOL.json
           if-no-files-found: error

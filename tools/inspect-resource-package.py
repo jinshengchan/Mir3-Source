@@ -8,6 +8,7 @@ import re
 import subprocess
 import gzip
 import io
+import shutil
 import zipfile
 
 
@@ -35,7 +36,8 @@ def inventory(path):
     body = listing.split('----------', 1)[-1]
     for block in body.split('\n\n'):
         fields = dict(line.split(' = ', 1) for line in block.splitlines() if ' = ' in line)
-        if 'Path' in fields and fields.get('Folder') != '+' and 'Size' in fields:
+        if ('Path' in fields and fields.get('Folder') != '+' and
+                not fields.get('Attributes', '').startswith('D') and 'Size' in fields):
             records.append({'name': fields['Path'], 'size': int(fields['Size'])})
     return '7z-supported', records
 
@@ -161,9 +163,19 @@ def inspect_update(archive, repository, output):
         except Exception as error:
             alternatives.append({'file': candidate.name, 'error': str(error)})
     integrity['alternative_base_packages'] = alternatives
+    selected_base = base
+    matching = next((item for item in alternatives if item.get('matches_manifest')), None)
+    if (actual_length != expected_length or actual_hash != expected_hash) and matching:
+        selected_base = output / 'verified-base' / base_name
+        selected_base.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(update / matching['file'], 'rb') as source, selected_base.open('wb') as target:
+            shutil.copyfileobj(source, target)
+    integrity['selected_base_source'] = matching['file'] if selected_base != base else base_name
+    integrity['selected_base_verified'] = (selected_base != base or
+                                          (actual_length == expected_length and actual_hash == expected_hash))
     (output / 'update-integrity.json').write_text(json.dumps(integrity, indent=2) + '\n')
     try:
-        inner = inspect(base, repository, output / 'base')
+        inner = inspect(selected_base, repository, output / 'base')
     except Exception as error:
         issues.append('Base ZIP inspection failed: ' + str(error))
         inner = {'entries': [], 'missing_source_catalog': outer['missing_source_catalog'], 'critical_missing': outer['critical_missing']}
@@ -194,6 +206,41 @@ def inspect_update(archive, repository, output):
     for i in range(0, len(result['update_files']), 30):
         print('::notice title=Update file inventory::' + '; '.join(p['name'] for p in result['update_files'][i:i + 30]))
     return result
+
+
+def prepare(archive, bootstrap, repository, output, assets):
+    report = inspect_update(archive, repository, output)
+    integrity = report['integrity']
+    if not integrity['selected_base_verified'] or integrity['patches_verified'] != integrity['patches_declared']:
+        raise ValueError('Replacement resource integrity is unresolved; refusing to build')
+    with zipfile.ZipFile(bootstrap) as source:
+        if source.testzip() is not None or 'Data/StartMobileScene.Zl' not in source.namelist():
+            raise ValueError('Invalid startup resource archive')
+    unresolved = [name for name in report['combined_critical_missing'] if name != 'Data/StartMobileScene.Zl']
+    if unresolved:
+        raise ValueError('Missing required resources: ' + '; '.join(unresolved))
+    update = next((output / 'extracted').rglob('PList.Bin')).parent
+    assets.mkdir(parents=True, exist_ok=True)
+    target = assets / 'LocalUpdate'
+    target.mkdir(parents=True, exist_ok=True)
+    selected = output / 'verified-base' / integrity['base']
+    if not selected.is_file():
+        selected = update / integrity['base']
+    shutil.copyfile(selected, target / integrity['base'])
+    for name in ('APKVersion.bin', 'PList.Bin'):
+        shutil.copyfile(update / name, target / name)
+    scope = __import__('runpy').run_path(str(repository / 'tools/verify-bundled-resources.py'))
+    with (update / 'PList.Bin').open('rb') as stream:
+        while stream.tell() < (update / 'PList.Bin').stat().st_size:
+            name = scope['read_string'](stream)
+            scope['read_length'](stream)
+            scope['read_hash'](stream)
+            patch = name.replace('\\', '-').replace('/', '-') + '.gz'
+            shutil.copyfile(update / patch, target / patch)
+    shutil.copyfile(bootstrap, assets / 'Data.zip')
+    verified = scope['verify'](assets)
+    print('::notice title=Replacement bundle prepared::' + json.dumps(verified))
+    return report
 
 
 if __name__ == '__main__':

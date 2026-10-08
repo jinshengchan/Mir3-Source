@@ -41,9 +41,10 @@ if (args.Length == 1)
 {
     // Validate actual encrypted bundled metadata independently of the fixtures.
     using var archive = ZipFile.OpenRead(Path.Combine(args[0], "LocalUpdate", "DataAdd.zip"));
-    foreach (var name in new[] { "Data/Map Data/Tilesc.Zl", "Data/Map Data/SmTilesc.Zl", "Data/Map Data/Tiles5c.Zl", "Data/Map Data/Wood/Tilesc.Zl" })
+    var mapEntries = archive.Entries.Where(entry => entry.FullName.StartsWith("Data/Map Data/", StringComparison.OrdinalIgnoreCase) && entry.FullName.EndsWith(".Zl", StringComparison.OrdinalIgnoreCase)).Take(4).ToArray();
+    if (mapEntries.Length != 4) throw new InvalidDataException("Four actual map libraries are required for metadata validation.");
+    foreach (var entry in mapEntries)
     {
-        var entry = archive.GetEntry(name)!;
         using var input = new BinaryReader(entry.Open());
         byte[] prefix = input.ReadBytes(24);
         int length = BitConverter.ToInt32(prefix, 20);

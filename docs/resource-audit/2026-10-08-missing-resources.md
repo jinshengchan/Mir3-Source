@@ -1,0 +1,985 @@
+# 2026-10-08 新 APK 资源缺失清单
+
+对比对象：资源链接 `11hocChF478kUzQB45F8jrcLIWAVKRC4X` 中与清单匹配的基础包，加上校验通过的 96 个补丁；对照仓库 `Library/Libraries.cs` 登记的资源路径。
+
+原资源包缺少 864 个登记路径。新 APK 已从启动素材包补入 `Data/StartMobileScene.Zl`，因此本文件列出其余 863 项。
+
+这些登记路径包含可选素材、传奇 2 兼容素材和按需下载素材，不表示当前服务器必须使用全部 863 项。清单不涵盖声音文件、地图数据文件的全量核对，也不能判断已存在素材库内的每张图片是否完整。路径比较沿用检查报告，忽略大小写；大小写或其他名称差异仍应另行核对。
+
+资源检查：[GitHub 检查记录](https://github.com/jinshengchan/Mir3-Source/actions/runs/37802480556)。
+
+打包结果：[测试 APK](https://github.com/jinshengchan/Mir3-Source/actions/runs/37800439864#artifacts)。
+
+## 目录统计
+
+| 目录 | 缺失项数 |
+| --- | ---: |
+| `Data/` | 200 |
+| `Data/Diy/Mon/` | 51 |
+| `Data/Map Data/` | 2 |
+| `Data/Map Data/Forest/` | 12 |
+| `Data/Map Data/Sand/` | 12 |
+| `Data/Map Data/ShandaMir2/` | 51 |
+| `Data/Map Data/ShandaMir3/` | 14 |
+| `Data/Map Data/ShandaMir3/Forest/` | 12 |
+| `Data/Map Data/ShandaMir3/Sand/` | 12 |
+| `Data/Map Data/ShandaMir3/Snow/` | 12 |
+| `Data/Map Data/ShandaMir3/Wood/` | 12 |
+| `Data/Map Data/Snow/` | 12 |
+| `Data/Map Data/WemadeMir2/` | 29 |
+| `Data/Map Data/Wood/` | 9 |
+| `Data/Mir2Monster/` | 423 |
+
+## 优先核对的路径
+
+以下文件涉及称号、物品、地面物品、骑乘、人物、魔法及地图建筑等；是否会用到，应结合当前服务器配置判断。
+
+- `Data/Title.Zl`
+- `Data/Inventory.Zl`
+- `Data/Ground.Zl`
+- `Data/Horse.Zl`
+- `Data/WM-Hum.Zl`
+- `Data/MonMagic.Zl`
+- `Data/Map Data/Dungeonsc.Zl`
+- `Data/Map Data/Innersc.Zl`
+
+## 完整缺失清单
+
+### Data/
+
+```text
+Data/AnimatedEquip1.Zl
+Data/EquipEffect-Full.Zl
+Data/EquipEffect-FullEx1.Zl
+Data/EquipEffect-FullEx2.Zl
+Data/EquipEffect-FullEx3.Zl
+Data/EquipEffect-Item.Zl
+Data/EquipEffect-Part.Zl
+Data/EquipEffect-UI.Zl
+Data/Ground.Zl
+Data/Horse.Zl
+Data/Horse_Blue.Zl
+Data/Horse_Dark.Zl
+Data/Horse_DarkEffect.Zl
+Data/Horse_Golden.Zl
+Data/Horse_Iron.Zl
+Data/Horse_Silver.Zl
+Data/Inventory.Zl
+Data/ItemGlow.Zl
+Data/KoreanMIcon.Zl
+Data/M-Costume.Zl
+Data/M-Costume1.Zl
+Data/M-Costume2.Zl
+Data/M-CostumeA.Zl
+Data/M-CostumeA1.Zl
+Data/M-CostumeA2.Zl
+Data/M-Hair.Zl
+Data/M-HairA.Zl
+Data/M-Helmet1.Zl
+Data/M-Helmet11.Zl
+Data/M-Helmet12.Zl
+Data/M-Helmet13.Zl
+Data/M-Helmet14.Zl
+Data/M-Helmet2.Zl
+Data/M-Helmet3.Zl
+Data/M-Helmet4.Zl
+Data/M-Helmet5.Zl
+Data/M-HumEx1.Zl
+Data/M-HumEx10.Zl
+Data/M-HumEx11.Zl
+Data/M-HumEx12.Zl
+Data/M-HumEx13.Zl
+Data/M-HumEx2.Zl
+Data/M-HumEx3.Zl
+Data/M-HumEx4.Zl
+Data/M-Shield2.Zl
+Data/M-Weapon1.Zl
+Data/M-Weapon11.Zl
+Data/M-Weapon12.Zl
+Data/M-Weapon13.Zl
+Data/M-Weapon14.Zl
+Data/M-Weapon15.Zl
+Data/M-Weapon16.Zl
+Data/M-Weapon2.Zl
+Data/M-Weapon3.Zl
+Data/M-Weapon4.Zl
+Data/M-Weapon5.Zl
+Data/M-Weapon6.Zl
+Data/M-Weapon7.Zl
+Data/MIcon.Zl
+Data/MagicEx.Zl
+Data/MagicEx2.Zl
+Data/MagicEx3.Zl
+Data/MagicEx4.Zl
+Data/MagicEx5.Zl
+Data/MagicEx6.Zl
+Data/MagicEx7.Zl
+Data/MagicEx8.Zl
+Data/MagicEx9.Zl
+Data/Mon-1.Zl
+Data/Mon-10.Zl
+Data/Mon-11.Zl
+Data/Mon-12.Zl
+Data/Mon-13.Zl
+Data/Mon-14.Zl
+Data/Mon-15.Zl
+Data/Mon-16.Zl
+Data/Mon-17.Zl
+Data/Mon-18.Zl
+Data/Mon-19.Zl
+Data/Mon-2.Zl
+Data/Mon-20.Zl
+Data/Mon-21.Zl
+Data/Mon-22.Zl
+Data/Mon-23.Zl
+Data/Mon-24.Zl
+Data/Mon-25.Zl
+Data/Mon-26.Zl
+Data/Mon-27.Zl
+Data/Mon-28.Zl
+Data/Mon-29.Zl
+Data/Mon-3.Zl
+Data/Mon-30.Zl
+Data/Mon-31.Zl
+Data/Mon-32.Zl
+Data/Mon-33.Zl
+Data/Mon-34.Zl
+Data/Mon-35.Zl
+Data/Mon-36.Zl
+Data/Mon-37.Zl
+Data/Mon-38.Zl
+Data/Mon-39.Zl
+Data/Mon-4.Zl
+Data/Mon-40.Zl
+Data/Mon-41.Zl
+Data/Mon-42.Zl
+Data/Mon-43.Zl
+Data/Mon-44.Zl
+Data/Mon-45.Zl
+Data/Mon-46.Zl
+Data/Mon-47.Zl
+Data/Mon-48.Zl
+Data/Mon-49.Zl
+Data/Mon-5.Zl
+Data/Mon-50.Zl
+Data/Mon-51.Zl
+Data/Mon-52.Zl
+Data/Mon-53.Zl
+Data/Mon-54.Zl
+Data/Mon-55.Zl
+Data/Mon-56.Zl
+Data/Mon-6.Zl
+Data/Mon-7.Zl
+Data/Mon-8.Zl
+Data/MonImg.Zl
+Data/MonMagic.Zl
+Data/MonMagicEx.Zl
+Data/MonMagicEx10.Zl
+Data/MonMagicEx11.Zl
+Data/MonMagicEx12.Zl
+Data/MonMagicEx13.Zl
+Data/MonMagicEx14.Zl
+Data/MonMagicEx15.Zl
+Data/MonMagicEx16.Zl
+Data/MonMagicEx17.Zl
+Data/MonMagicEx18.Zl
+Data/MonMagicEx19.Zl
+Data/MonMagicEx2.Zl
+Data/MonMagicEx20.Zl
+Data/MonMagicEx21.Zl
+Data/MonMagicEx22.Zl
+Data/MonMagicEx23.Zl
+Data/MonMagicEx24.Zl
+Data/MonMagicEx25.Zl
+Data/MonMagicEx26.Zl
+Data/MonMagicEx27.Zl
+Data/MonMagicEx28.Zl
+Data/MonMagicEx3.Zl
+Data/MonMagicEx4.Zl
+Data/MonMagicEx5.Zl
+Data/MonMagicEx6.Zl
+Data/MonMagicEx7.Zl
+Data/MonMagicEx8.Zl
+Data/MonMagicEx9.Zl
+Data/Npc_Plus.Zl
+Data/Title.Zl
+Data/WM-Costume.Zl
+Data/WM-Costume1.Zl
+Data/WM-Costume2.Zl
+Data/WM-CostumeA.Zl
+Data/WM-CostumeA1.Zl
+Data/WM-CostumeA2.Zl
+Data/WM-Hair.Zl
+Data/WM-HairA.Zl
+Data/WM-Helmet1.Zl
+Data/WM-Helmet11.Zl
+Data/WM-Helmet12.Zl
+Data/WM-Helmet13.Zl
+Data/WM-Helmet14.Zl
+Data/WM-Helmet2.Zl
+Data/WM-Helmet3.Zl
+Data/WM-Helmet4.Zl
+Data/WM-Helmet5.Zl
+Data/WM-Hum.Zl
+Data/WM-HumEx1.Zl
+Data/WM-HumEx10.Zl
+Data/WM-HumEx11.Zl
+Data/WM-HumEx12.Zl
+Data/WM-HumEx13.Zl
+Data/WM-HumEx2.Zl
+Data/WM-HumEx3.Zl
+Data/WM-HumEx4.Zl
+Data/WM-Shield1.Zl
+Data/WM-Shield2.Zl
+Data/WM-Weapon1.Zl
+Data/WM-Weapon10.Zl
+Data/WM-Weapon11.Zl
+Data/WM-Weapon12.Zl
+Data/WM-Weapon13.Zl
+Data/WM-Weapon14.Zl
+Data/WM-Weapon15.Zl
+Data/WM-Weapon16.Zl
+Data/WM-Weapon2.Zl
+Data/WM-Weapon3.Zl
+Data/WM-Weapon4.Zl
+Data/WM-Weapon5.Zl
+Data/WM-Weapon6.Zl
+Data/WM-Weapon7.Zl
+Data/传奇2武器外观.Zl
+Data/传奇2衣服外观.Zl
+Data/传奇2连体外观.Zl
+```
+
+### Data/Diy/Mon/
+
+```text
+Data/Diy/Mon/Mon-101.Zl
+Data/Diy/Mon/Mon-102.Zl
+Data/Diy/Mon/Mon-103.Zl
+Data/Diy/Mon/Mon-104.Zl
+Data/Diy/Mon/Mon-105.Zl
+Data/Diy/Mon/Mon-106.Zl
+Data/Diy/Mon/Mon-107.Zl
+Data/Diy/Mon/Mon-108.Zl
+Data/Diy/Mon/Mon-109.Zl
+Data/Diy/Mon/Mon-110.Zl
+Data/Diy/Mon/Mon-111.Zl
+Data/Diy/Mon/Mon-112.Zl
+Data/Diy/Mon/Mon-113.Zl
+Data/Diy/Mon/Mon-114.Zl
+Data/Diy/Mon/Mon-115.Zl
+Data/Diy/Mon/Mon-116.Zl
+Data/Diy/Mon/Mon-117.Zl
+Data/Diy/Mon/Mon-118.Zl
+Data/Diy/Mon/Mon-119.Zl
+Data/Diy/Mon/Mon-120.Zl
+Data/Diy/Mon/Mon-121.Zl
+Data/Diy/Mon/Mon-122.Zl
+Data/Diy/Mon/Mon-123.Zl
+Data/Diy/Mon/Mon-124.Zl
+Data/Diy/Mon/Mon-125.Zl
+Data/Diy/Mon/Mon-126.Zl
+Data/Diy/Mon/Mon-127.Zl
+Data/Diy/Mon/Mon-128.Zl
+Data/Diy/Mon/Mon-129.Zl
+Data/Diy/Mon/Mon-130.Zl
+Data/Diy/Mon/Mon-131.Zl
+Data/Diy/Mon/Mon-132.Zl
+Data/Diy/Mon/Mon-133.Zl
+Data/Diy/Mon/Mon-134.Zl
+Data/Diy/Mon/Mon-135.Zl
+Data/Diy/Mon/Mon-136.Zl
+Data/Diy/Mon/Mon-137.Zl
+Data/Diy/Mon/Mon-138.Zl
+Data/Diy/Mon/Mon-139.Zl
+Data/Diy/Mon/Mon-140.Zl
+Data/Diy/Mon/Mon-141.Zl
+Data/Diy/Mon/Mon-142.Zl
+Data/Diy/Mon/Mon-143.Zl
+Data/Diy/Mon/Mon-144.Zl
+Data/Diy/Mon/Mon-145.Zl
+Data/Diy/Mon/Mon-146.Zl
+Data/Diy/Mon/Mon-147.Zl
+Data/Diy/Mon/Mon-148.Zl
+Data/Diy/Mon/Mon-149.Zl
+Data/Diy/Mon/Mon-150.Zl
+Data/Diy/Mon/Mon-151.Zl
+```
+
+### Data/Map Data/
+
+```text
+Data/Map Data/Dungeonsc.Zl
+Data/Map Data/Innersc.Zl
+```
+
+### Data/Map Data/Forest/
+
+```text
+Data/Map Data/Forest/Animationsc.Zl
+Data/Map Data/Forest/Cliffsc.Zl
+Data/Map Data/Forest/Dungeonsc.Zl
+Data/Map Data/Forest/Furnituresc.Zl
+Data/Map Data/Forest/Housesc.Zl
+Data/Map Data/Forest/Innersc.Zl
+Data/Map Data/Forest/SmObjectsc.Zl
+Data/Map Data/Forest/SmTilesc.Zl
+Data/Map Data/Forest/Tiles30c.Zl
+Data/Map Data/Forest/Tiles5c.Zl
+Data/Map Data/Forest/Tilesc.Zl
+Data/Map Data/Forest/Wallsc.Zl
+```
+
+### Data/Map Data/Sand/
+
+```text
+Data/Map Data/Sand/Animationsc.Zl
+Data/Map Data/Sand/Cliffsc.Zl
+Data/Map Data/Sand/Dungeonsc.Zl
+Data/Map Data/Sand/Furnituresc.Zl
+Data/Map Data/Sand/Housesc.Zl
+Data/Map Data/Sand/Innersc.Zl
+Data/Map Data/Sand/SmObjectsc.Zl
+Data/Map Data/Sand/SmTilesc.Zl
+Data/Map Data/Sand/Tiles30c.Zl
+Data/Map Data/Sand/Tiles5c.Zl
+Data/Map Data/Sand/Tilesc.Zl
+Data/Map Data/Sand/Wallsc.Zl
+```
+
+### Data/Map Data/ShandaMir2/
+
+```text
+Data/Map Data/ShandaMir2/AniTiles1.Zl
+Data/Map Data/ShandaMir2/Objects.Zl
+Data/Map Data/ShandaMir2/Objects10.Zl
+Data/Map Data/ShandaMir2/Objects11.Zl
+Data/Map Data/ShandaMir2/Objects12.Zl
+Data/Map Data/ShandaMir2/Objects13.Zl
+Data/Map Data/ShandaMir2/Objects14.Zl
+Data/Map Data/ShandaMir2/Objects15.Zl
+Data/Map Data/ShandaMir2/Objects16.Zl
+Data/Map Data/ShandaMir2/Objects17.Zl
+Data/Map Data/ShandaMir2/Objects18.Zl
+Data/Map Data/ShandaMir2/Objects19.Zl
+Data/Map Data/ShandaMir2/Objects2.Zl
+Data/Map Data/ShandaMir2/Objects20.Zl
+Data/Map Data/ShandaMir2/Objects21.Zl
+Data/Map Data/ShandaMir2/Objects22.Zl
+Data/Map Data/ShandaMir2/Objects23.Zl
+Data/Map Data/ShandaMir2/Objects24.Zl
+Data/Map Data/ShandaMir2/Objects25.Zl
+Data/Map Data/ShandaMir2/Objects26.Zl
+Data/Map Data/ShandaMir2/Objects27.Zl
+Data/Map Data/ShandaMir2/Objects28.Zl
+Data/Map Data/ShandaMir2/Objects29.Zl
+Data/Map Data/ShandaMir2/Objects3.Zl
+Data/Map Data/ShandaMir2/Objects30.Zl
+Data/Map Data/ShandaMir2/Objects4.Zl
+Data/Map Data/ShandaMir2/Objects5.Zl
+Data/Map Data/ShandaMir2/Objects6.Zl
+Data/Map Data/ShandaMir2/Objects7.Zl
+Data/Map Data/ShandaMir2/Objects8.Zl
+Data/Map Data/ShandaMir2/Objects9.Zl
+Data/Map Data/ShandaMir2/SmTiles.Zl
+Data/Map Data/ShandaMir2/SmTiles10.Zl
+Data/Map Data/ShandaMir2/SmTiles2.Zl
+Data/Map Data/ShandaMir2/SmTiles3.Zl
+Data/Map Data/ShandaMir2/SmTiles4.Zl
+Data/Map Data/ShandaMir2/SmTiles5.Zl
+Data/Map Data/ShandaMir2/SmTiles6.Zl
+Data/Map Data/ShandaMir2/SmTiles7.Zl
+Data/Map Data/ShandaMir2/SmTiles8.Zl
+Data/Map Data/ShandaMir2/SmTiles9.Zl
+Data/Map Data/ShandaMir2/Tiles.Zl
+Data/Map Data/ShandaMir2/Tiles10.Zl
+Data/Map Data/ShandaMir2/Tiles2.Zl
+Data/Map Data/ShandaMir2/Tiles3.Zl
+Data/Map Data/ShandaMir2/Tiles4.Zl
+Data/Map Data/ShandaMir2/Tiles5.Zl
+Data/Map Data/ShandaMir2/Tiles6.Zl
+Data/Map Data/ShandaMir2/Tiles7.Zl
+Data/Map Data/ShandaMir2/Tiles8.Zl
+Data/Map Data/ShandaMir2/Tiles9.Zl
+```
+
+### Data/Map Data/ShandaMir3/
+
+```text
+Data/Map Data/ShandaMir3/Animationsc.Zl
+Data/Map Data/ShandaMir3/Cliffsc.Zl
+Data/Map Data/ShandaMir3/Dungeonsc.Zl
+Data/Map Data/ShandaMir3/Furnituresc.Zl
+Data/Map Data/ShandaMir3/Housesc.Zl
+Data/Map Data/ShandaMir3/Innersc.Zl
+Data/Map Data/ShandaMir3/Object1c.Zl
+Data/Map Data/ShandaMir3/Object2c.Zl
+Data/Map Data/ShandaMir3/SmObjectsc.Zl
+Data/Map Data/ShandaMir3/SmTilesc.Zl
+Data/Map Data/ShandaMir3/Tiles30c.Zl
+Data/Map Data/ShandaMir3/Tiles5c.Zl
+Data/Map Data/ShandaMir3/Tilesc.Zl
+Data/Map Data/ShandaMir3/Wallsc.Zl
+```
+
+### Data/Map Data/ShandaMir3/Forest/
+
+```text
+Data/Map Data/ShandaMir3/Forest/Animationsc.Zl
+Data/Map Data/ShandaMir3/Forest/Cliffsc.Zl
+Data/Map Data/ShandaMir3/Forest/Dungeonsc.Zl
+Data/Map Data/ShandaMir3/Forest/Furnituresc.Zl
+Data/Map Data/ShandaMir3/Forest/Housesc.Zl
+Data/Map Data/ShandaMir3/Forest/Innersc.Zl
+Data/Map Data/ShandaMir3/Forest/SmObjectsc.Zl
+Data/Map Data/ShandaMir3/Forest/SmTilesc.Zl
+Data/Map Data/ShandaMir3/Forest/Tiles30c.Zl
+Data/Map Data/ShandaMir3/Forest/Tiles5c.Zl
+Data/Map Data/ShandaMir3/Forest/Tilesc.Zl
+Data/Map Data/ShandaMir3/Forest/Wallsc.Zl
+```
+
+### Data/Map Data/ShandaMir3/Sand/
+
+```text
+Data/Map Data/ShandaMir3/Sand/Animationsc.Zl
+Data/Map Data/ShandaMir3/Sand/Cliffsc.Zl
+Data/Map Data/ShandaMir3/Sand/Dungeonsc.Zl
+Data/Map Data/ShandaMir3/Sand/Furnituresc.Zl
+Data/Map Data/ShandaMir3/Sand/Housesc.Zl
+Data/Map Data/ShandaMir3/Sand/Innersc.Zl
+Data/Map Data/ShandaMir3/Sand/SmObjectsc.Zl
+Data/Map Data/ShandaMir3/Sand/SmTilesc.Zl
+Data/Map Data/ShandaMir3/Sand/Tiles30c.Zl
+Data/Map Data/ShandaMir3/Sand/Tiles5c.Zl
+Data/Map Data/ShandaMir3/Sand/Tilesc.Zl
+Data/Map Data/ShandaMir3/Sand/Wallsc.Zl
+```
+
+### Data/Map Data/ShandaMir3/Snow/
+
+```text
+Data/Map Data/ShandaMir3/Snow/Animationsc.Zl
+Data/Map Data/ShandaMir3/Snow/Cliffsc.Zl
+Data/Map Data/ShandaMir3/Snow/Dungeonsc.Zl
+Data/Map Data/ShandaMir3/Snow/Furnituresc.Zl
+Data/Map Data/ShandaMir3/Snow/Housesc.Zl
+Data/Map Data/ShandaMir3/Snow/Innersc.Zl
+Data/Map Data/ShandaMir3/Snow/SmObjectsc.Zl
+Data/Map Data/ShandaMir3/Snow/SmTilesc.Zl
+Data/Map Data/ShandaMir3/Snow/Tiles30c.Zl
+Data/Map Data/ShandaMir3/Snow/Tiles5c.Zl
+Data/Map Data/ShandaMir3/Snow/Tilesc.Zl
+Data/Map Data/ShandaMir3/Snow/Wallsc.Zl
+```
+
+### Data/Map Data/ShandaMir3/Wood/
+
+```text
+Data/Map Data/ShandaMir3/Wood/Animationsc.Zl
+Data/Map Data/ShandaMir3/Wood/Cliffsc.Zl
+Data/Map Data/ShandaMir3/Wood/Dungeonsc.Zl
+Data/Map Data/ShandaMir3/Wood/Furnituresc.Zl
+Data/Map Data/ShandaMir3/Wood/Housesc.Zl
+Data/Map Data/ShandaMir3/Wood/Innersc.Zl
+Data/Map Data/ShandaMir3/Wood/SmObjectsc.Zl
+Data/Map Data/ShandaMir3/Wood/SmTilesc.Zl
+Data/Map Data/ShandaMir3/Wood/Tiles30c.Zl
+Data/Map Data/ShandaMir3/Wood/Tiles5c.Zl
+Data/Map Data/ShandaMir3/Wood/Tilesc.Zl
+Data/Map Data/ShandaMir3/Wood/Wallsc.Zl
+```
+
+### Data/Map Data/Snow/
+
+```text
+Data/Map Data/Snow/Animationsc.Zl
+Data/Map Data/Snow/Cliffsc.Zl
+Data/Map Data/Snow/Dungeonsc.Zl
+Data/Map Data/Snow/Furnituresc.Zl
+Data/Map Data/Snow/Housesc.Zl
+Data/Map Data/Snow/Innersc.Zl
+Data/Map Data/Snow/SmObjectsc.Zl
+Data/Map Data/Snow/SmTilesc.Zl
+Data/Map Data/Snow/Tiles30c.Zl
+Data/Map Data/Snow/Tiles5c.Zl
+Data/Map Data/Snow/Tilesc.Zl
+Data/Map Data/Snow/Wallsc.Zl
+```
+
+### Data/Map Data/WemadeMir2/
+
+```text
+Data/Map Data/WemadeMir2/Objects.Zl
+Data/Map Data/WemadeMir2/Objects10.Zl
+Data/Map Data/WemadeMir2/Objects11.Zl
+Data/Map Data/WemadeMir2/Objects12.Zl
+Data/Map Data/WemadeMir2/Objects13.Zl
+Data/Map Data/WemadeMir2/Objects14.Zl
+Data/Map Data/WemadeMir2/Objects15.Zl
+Data/Map Data/WemadeMir2/Objects16.Zl
+Data/Map Data/WemadeMir2/Objects17.Zl
+Data/Map Data/WemadeMir2/Objects18.Zl
+Data/Map Data/WemadeMir2/Objects19.Zl
+Data/Map Data/WemadeMir2/Objects2.Zl
+Data/Map Data/WemadeMir2/Objects20.Zl
+Data/Map Data/WemadeMir2/Objects21.Zl
+Data/Map Data/WemadeMir2/Objects22.Zl
+Data/Map Data/WemadeMir2/Objects23.Zl
+Data/Map Data/WemadeMir2/Objects24.Zl
+Data/Map Data/WemadeMir2/Objects25.Zl
+Data/Map Data/WemadeMir2/Objects26.Zl
+Data/Map Data/WemadeMir2/Objects27.Zl
+Data/Map Data/WemadeMir2/Objects3.Zl
+Data/Map Data/WemadeMir2/Objects4.Zl
+Data/Map Data/WemadeMir2/Objects5.Zl
+Data/Map Data/WemadeMir2/Objects6.Zl
+Data/Map Data/WemadeMir2/Objects7.Zl
+Data/Map Data/WemadeMir2/Objects8.Zl
+Data/Map Data/WemadeMir2/Objects9.Zl
+Data/Map Data/WemadeMir2/SmTiles.Zl
+Data/Map Data/WemadeMir2/Tiles.Zl
+```
+
+### Data/Map Data/Wood/
+
+```text
+Data/Map Data/Wood/Cliffsc.Zl
+Data/Map Data/Wood/Dungeonsc.Zl
+Data/Map Data/Wood/Furnituresc.Zl
+Data/Map Data/Wood/Housesc.Zl
+Data/Map Data/Wood/Innersc.Zl
+Data/Map Data/Wood/SmTilesc.Zl
+Data/Map Data/Wood/Tiles30c.Zl
+Data/Map Data/Wood/Tiles5c.Zl
+Data/Map Data/Wood/Wallsc.Zl
+```
+
+### Data/Mir2Monster/
+
+```text
+Data/Mir2Monster/000.Zl
+Data/Mir2Monster/001.Zl
+Data/Mir2Monster/002.Zl
+Data/Mir2Monster/003.Zl
+Data/Mir2Monster/004.Zl
+Data/Mir2Monster/005.Zl
+Data/Mir2Monster/006.Zl
+Data/Mir2Monster/007.Zl
+Data/Mir2Monster/008.Zl
+Data/Mir2Monster/009.Zl
+Data/Mir2Monster/010.Zl
+Data/Mir2Monster/011.Zl
+Data/Mir2Monster/012.Zl
+Data/Mir2Monster/013.Zl
+Data/Mir2Monster/014.Zl
+Data/Mir2Monster/015.Zl
+Data/Mir2Monster/016.Zl
+Data/Mir2Monster/017.Zl
+Data/Mir2Monster/018.Zl
+Data/Mir2Monster/019.Zl
+Data/Mir2Monster/020.Zl
+Data/Mir2Monster/021.Zl
+Data/Mir2Monster/022.Zl
+Data/Mir2Monster/023.Zl
+Data/Mir2Monster/024.Zl
+Data/Mir2Monster/025.Zl
+Data/Mir2Monster/026.Zl
+Data/Mir2Monster/027.Zl
+Data/Mir2Monster/028.Zl
+Data/Mir2Monster/029.Zl
+Data/Mir2Monster/030.Zl
+Data/Mir2Monster/031.Zl
+Data/Mir2Monster/032.Zl
+Data/Mir2Monster/033.Zl
+Data/Mir2Monster/034.Zl
+Data/Mir2Monster/035.Zl
+Data/Mir2Monster/036.Zl
+Data/Mir2Monster/037.Zl
+Data/Mir2Monster/038.Zl
+Data/Mir2Monster/039.Zl
+Data/Mir2Monster/040.Zl
+Data/Mir2Monster/041.Zl
+Data/Mir2Monster/042.Zl
+Data/Mir2Monster/043.Zl
+Data/Mir2Monster/044.Zl
+Data/Mir2Monster/045.Zl
+Data/Mir2Monster/046.Zl
+Data/Mir2Monster/047.Zl
+Data/Mir2Monster/048.Zl
+Data/Mir2Monster/049.Zl
+Data/Mir2Monster/050.Zl
+Data/Mir2Monster/051.Zl
+Data/Mir2Monster/052.Zl
+Data/Mir2Monster/053.Zl
+Data/Mir2Monster/054.Zl
+Data/Mir2Monster/055.Zl
+Data/Mir2Monster/056.Zl
+Data/Mir2Monster/057.Zl
+Data/Mir2Monster/058.Zl
+Data/Mir2Monster/059.Zl
+Data/Mir2Monster/060.Zl
+Data/Mir2Monster/061.Zl
+Data/Mir2Monster/062.Zl
+Data/Mir2Monster/063.Zl
+Data/Mir2Monster/064.Zl
+Data/Mir2Monster/065.Zl
+Data/Mir2Monster/066.Zl
+Data/Mir2Monster/067.Zl
+Data/Mir2Monster/068.Zl
+Data/Mir2Monster/069.Zl
+Data/Mir2Monster/070.Zl
+Data/Mir2Monster/071.Zl
+Data/Mir2Monster/072.Zl
+Data/Mir2Monster/073.Zl
+Data/Mir2Monster/074.Zl
+Data/Mir2Monster/075.Zl
+Data/Mir2Monster/076.Zl
+Data/Mir2Monster/077.Zl
+Data/Mir2Monster/078.Zl
+Data/Mir2Monster/079.Zl
+Data/Mir2Monster/080.Zl
+Data/Mir2Monster/081.Zl
+Data/Mir2Monster/082.Zl
+Data/Mir2Monster/083.Zl
+Data/Mir2Monster/084.Zl
+Data/Mir2Monster/085.Zl
+Data/Mir2Monster/086.Zl
+Data/Mir2Monster/087.Zl
+Data/Mir2Monster/088.Zl
+Data/Mir2Monster/089.Zl
+Data/Mir2Monster/090.Zl
+Data/Mir2Monster/091.Zl
+Data/Mir2Monster/092.Zl
+Data/Mir2Monster/093.Zl
+Data/Mir2Monster/094.Zl
+Data/Mir2Monster/095.Zl
+Data/Mir2Monster/096.Zl
+Data/Mir2Monster/097.Zl
+Data/Mir2Monster/098.Zl
+Data/Mir2Monster/099.Zl
+Data/Mir2Monster/100.Zl
+Data/Mir2Monster/101.Zl
+Data/Mir2Monster/102.Zl
+Data/Mir2Monster/103.Zl
+Data/Mir2Monster/104.Zl
+Data/Mir2Monster/105.Zl
+Data/Mir2Monster/106.Zl
+Data/Mir2Monster/107.Zl
+Data/Mir2Monster/108.Zl
+Data/Mir2Monster/109.Zl
+Data/Mir2Monster/110.Zl
+Data/Mir2Monster/111.Zl
+Data/Mir2Monster/112.Zl
+Data/Mir2Monster/113.Zl
+Data/Mir2Monster/114.Zl
+Data/Mir2Monster/115.Zl
+Data/Mir2Monster/116.Zl
+Data/Mir2Monster/117.Zl
+Data/Mir2Monster/118.Zl
+Data/Mir2Monster/119.Zl
+Data/Mir2Monster/120.Zl
+Data/Mir2Monster/121.Zl
+Data/Mir2Monster/122.Zl
+Data/Mir2Monster/123.Zl
+Data/Mir2Monster/124.Zl
+Data/Mir2Monster/125.Zl
+Data/Mir2Monster/126.Zl
+Data/Mir2Monster/127.Zl
+Data/Mir2Monster/128.Zl
+Data/Mir2Monster/129.Zl
+Data/Mir2Monster/130.Zl
+Data/Mir2Monster/131.Zl
+Data/Mir2Monster/132.Zl
+Data/Mir2Monster/133.Zl
+Data/Mir2Monster/134.Zl
+Data/Mir2Monster/135.Zl
+Data/Mir2Monster/136.Zl
+Data/Mir2Monster/137.Zl
+Data/Mir2Monster/138.Zl
+Data/Mir2Monster/139.Zl
+Data/Mir2Monster/140.Zl
+Data/Mir2Monster/141.Zl
+Data/Mir2Monster/142.Zl
+Data/Mir2Monster/143.Zl
+Data/Mir2Monster/144.Zl
+Data/Mir2Monster/145.Zl
+Data/Mir2Monster/146.Zl
+Data/Mir2Monster/147.Zl
+Data/Mir2Monster/148.Zl
+Data/Mir2Monster/149.Zl
+Data/Mir2Monster/150.Zl
+Data/Mir2Monster/151.Zl
+Data/Mir2Monster/152.Zl
+Data/Mir2Monster/153.Zl
+Data/Mir2Monster/154.Zl
+Data/Mir2Monster/155.Zl
+Data/Mir2Monster/156.Zl
+Data/Mir2Monster/157.Zl
+Data/Mir2Monster/158.Zl
+Data/Mir2Monster/159.Zl
+Data/Mir2Monster/160.Zl
+Data/Mir2Monster/161.Zl
+Data/Mir2Monster/162.Zl
+Data/Mir2Monster/163.Zl
+Data/Mir2Monster/164.Zl
+Data/Mir2Monster/165.Zl
+Data/Mir2Monster/166.Zl
+Data/Mir2Monster/167.Zl
+Data/Mir2Monster/168.Zl
+Data/Mir2Monster/169.Zl
+Data/Mir2Monster/170.Zl
+Data/Mir2Monster/171.Zl
+Data/Mir2Monster/172.Zl
+Data/Mir2Monster/173.Zl
+Data/Mir2Monster/174.Zl
+Data/Mir2Monster/175.Zl
+Data/Mir2Monster/176.Zl
+Data/Mir2Monster/177.Zl
+Data/Mir2Monster/178.Zl
+Data/Mir2Monster/179.Zl
+Data/Mir2Monster/180.Zl
+Data/Mir2Monster/181.Zl
+Data/Mir2Monster/182.Zl
+Data/Mir2Monster/183.Zl
+Data/Mir2Monster/184.Zl
+Data/Mir2Monster/185.Zl
+Data/Mir2Monster/186.Zl
+Data/Mir2Monster/187.Zl
+Data/Mir2Monster/188.Zl
+Data/Mir2Monster/189.Zl
+Data/Mir2Monster/190.Zl
+Data/Mir2Monster/191.Zl
+Data/Mir2Monster/192.Zl
+Data/Mir2Monster/193.Zl
+Data/Mir2Monster/194.Zl
+Data/Mir2Monster/195.Zl
+Data/Mir2Monster/196.Zl
+Data/Mir2Monster/197.Zl
+Data/Mir2Monster/198.Zl
+Data/Mir2Monster/199.Zl
+Data/Mir2Monster/200.Zl
+Data/Mir2Monster/201.Zl
+Data/Mir2Monster/202.Zl
+Data/Mir2Monster/203.Zl
+Data/Mir2Monster/204.Zl
+Data/Mir2Monster/205.Zl
+Data/Mir2Monster/206.Zl
+Data/Mir2Monster/207.Zl
+Data/Mir2Monster/208.Zl
+Data/Mir2Monster/209.Zl
+Data/Mir2Monster/210.Zl
+Data/Mir2Monster/211.Zl
+Data/Mir2Monster/212.Zl
+Data/Mir2Monster/213.Zl
+Data/Mir2Monster/214.Zl
+Data/Mir2Monster/215.Zl
+Data/Mir2Monster/216.Zl
+Data/Mir2Monster/217.Zl
+Data/Mir2Monster/218.Zl
+Data/Mir2Monster/219.Zl
+Data/Mir2Monster/220.Zl
+Data/Mir2Monster/221.Zl
+Data/Mir2Monster/222.Zl
+Data/Mir2Monster/223.Zl
+Data/Mir2Monster/224.Zl
+Data/Mir2Monster/225.Zl
+Data/Mir2Monster/226.Zl
+Data/Mir2Monster/227.Zl
+Data/Mir2Monster/228.Zl
+Data/Mir2Monster/229.Zl
+Data/Mir2Monster/230.Zl
+Data/Mir2Monster/231.Zl
+Data/Mir2Monster/232.Zl
+Data/Mir2Monster/233.Zl
+Data/Mir2Monster/234.Zl
+Data/Mir2Monster/235.Zl
+Data/Mir2Monster/236.Zl
+Data/Mir2Monster/237.Zl
+Data/Mir2Monster/238.Zl
+Data/Mir2Monster/239.Zl
+Data/Mir2Monster/240.Zl
+Data/Mir2Monster/241.Zl
+Data/Mir2Monster/242.Zl
+Data/Mir2Monster/243.Zl
+Data/Mir2Monster/244.Zl
+Data/Mir2Monster/245.Zl
+Data/Mir2Monster/246.Zl
+Data/Mir2Monster/247.Zl
+Data/Mir2Monster/248.Zl
+Data/Mir2Monster/249.Zl
+Data/Mir2Monster/250.Zl
+Data/Mir2Monster/251.Zl
+Data/Mir2Monster/252.Zl
+Data/Mir2Monster/253.Zl
+Data/Mir2Monster/254.Zl
+Data/Mir2Monster/255.Zl
+Data/Mir2Monster/256.Zl
+Data/Mir2Monster/257.Zl
+Data/Mir2Monster/258.Zl
+Data/Mir2Monster/259.Zl
+Data/Mir2Monster/260.Zl
+Data/Mir2Monster/261.Zl
+Data/Mir2Monster/262.Zl
+Data/Mir2Monster/263.Zl
+Data/Mir2Monster/264.Zl
+Data/Mir2Monster/265.Zl
+Data/Mir2Monster/266.Zl
+Data/Mir2Monster/267.Zl
+Data/Mir2Monster/268.Zl
+Data/Mir2Monster/269.Zl
+Data/Mir2Monster/270.Zl
+Data/Mir2Monster/271.Zl
+Data/Mir2Monster/272.Zl
+Data/Mir2Monster/273.Zl
+Data/Mir2Monster/274.Zl
+Data/Mir2Monster/275.Zl
+Data/Mir2Monster/276.Zl
+Data/Mir2Monster/277.Zl
+Data/Mir2Monster/278.Zl
+Data/Mir2Monster/279.Zl
+Data/Mir2Monster/280.Zl
+Data/Mir2Monster/281.Zl
+Data/Mir2Monster/282.Zl
+Data/Mir2Monster/283.Zl
+Data/Mir2Monster/284.Zl
+Data/Mir2Monster/285.Zl
+Data/Mir2Monster/286.Zl
+Data/Mir2Monster/287.Zl
+Data/Mir2Monster/288.Zl
+Data/Mir2Monster/289.Zl
+Data/Mir2Monster/290.Zl
+Data/Mir2Monster/291.Zl
+Data/Mir2Monster/292.Zl
+Data/Mir2Monster/293.Zl
+Data/Mir2Monster/294.Zl
+Data/Mir2Monster/295.Zl
+Data/Mir2Monster/296.Zl
+Data/Mir2Monster/297.Zl
+Data/Mir2Monster/298.Zl
+Data/Mir2Monster/299.Zl
+Data/Mir2Monster/300.Zl
+Data/Mir2Monster/301.Zl
+Data/Mir2Monster/302.Zl
+Data/Mir2Monster/303.Zl
+Data/Mir2Monster/304.Zl
+Data/Mir2Monster/305.Zl
+Data/Mir2Monster/306.Zl
+Data/Mir2Monster/307.Zl
+Data/Mir2Monster/308.Zl
+Data/Mir2Monster/309.Zl
+Data/Mir2Monster/310.Zl
+Data/Mir2Monster/311.Zl
+Data/Mir2Monster/312.Zl
+Data/Mir2Monster/313.Zl
+Data/Mir2Monster/314.Zl
+Data/Mir2Monster/315.Zl
+Data/Mir2Monster/316.Zl
+Data/Mir2Monster/317.Zl
+Data/Mir2Monster/318.Zl
+Data/Mir2Monster/319.Zl
+Data/Mir2Monster/320.Zl
+Data/Mir2Monster/321.Zl
+Data/Mir2Monster/322.Zl
+Data/Mir2Monster/323.Zl
+Data/Mir2Monster/324.Zl
+Data/Mir2Monster/325.Zl
+Data/Mir2Monster/326.Zl
+Data/Mir2Monster/327.Zl
+Data/Mir2Monster/328.Zl
+Data/Mir2Monster/329.Zl
+Data/Mir2Monster/330.Zl
+Data/Mir2Monster/331.Zl
+Data/Mir2Monster/332.Zl
+Data/Mir2Monster/333.Zl
+Data/Mir2Monster/334.Zl
+Data/Mir2Monster/335.Zl
+Data/Mir2Monster/336.Zl
+Data/Mir2Monster/337.Zl
+Data/Mir2Monster/338.Zl
+Data/Mir2Monster/339.Zl
+Data/Mir2Monster/340.Zl
+Data/Mir2Monster/341.Zl
+Data/Mir2Monster/342.Zl
+Data/Mir2Monster/343.Zl
+Data/Mir2Monster/344.Zl
+Data/Mir2Monster/345.Zl
+Data/Mir2Monster/346.Zl
+Data/Mir2Monster/347.Zl
+Data/Mir2Monster/348.Zl
+Data/Mir2Monster/349.Zl
+Data/Mir2Monster/350.Zl
+Data/Mir2Monster/351.Zl
+Data/Mir2Monster/352.Zl
+Data/Mir2Monster/353.Zl
+Data/Mir2Monster/354.Zl
+Data/Mir2Monster/355.Zl
+Data/Mir2Monster/356.Zl
+Data/Mir2Monster/357.Zl
+Data/Mir2Monster/358.Zl
+Data/Mir2Monster/359.Zl
+Data/Mir2Monster/360.Zl
+Data/Mir2Monster/361.Zl
+Data/Mir2Monster/362.Zl
+Data/Mir2Monster/363.Zl
+Data/Mir2Monster/364.Zl
+Data/Mir2Monster/365.Zl
+Data/Mir2Monster/366.Zl
+Data/Mir2Monster/367.Zl
+Data/Mir2Monster/368.Zl
+Data/Mir2Monster/369.Zl
+Data/Mir2Monster/370.Zl
+Data/Mir2Monster/371.Zl
+Data/Mir2Monster/372.Zl
+Data/Mir2Monster/373.Zl
+Data/Mir2Monster/374.Zl
+Data/Mir2Monster/375.Zl
+Data/Mir2Monster/376.Zl
+Data/Mir2Monster/377.Zl
+Data/Mir2Monster/378.Zl
+Data/Mir2Monster/379.Zl
+Data/Mir2Monster/380.Zl
+Data/Mir2Monster/381.Zl
+Data/Mir2Monster/382.Zl
+Data/Mir2Monster/383.Zl
+Data/Mir2Monster/384.Zl
+Data/Mir2Monster/385.Zl
+Data/Mir2Monster/386.Zl
+Data/Mir2Monster/387.Zl
+Data/Mir2Monster/388.Zl
+Data/Mir2Monster/389.Zl
+Data/Mir2Monster/390.Zl
+Data/Mir2Monster/391.Zl
+Data/Mir2Monster/392.Zl
+Data/Mir2Monster/393.Zl
+Data/Mir2Monster/394.Zl
+Data/Mir2Monster/395.Zl
+Data/Mir2Monster/396.Zl
+Data/Mir2Monster/397.Zl
+Data/Mir2Monster/398.Zl
+Data/Mir2Monster/399.Zl
+Data/Mir2Monster/400.Zl
+Data/Mir2Monster/401.Zl
+Data/Mir2Monster/402.Zl
+Data/Mir2Monster/403.Zl
+Data/Mir2Monster/404.Zl
+Data/Mir2Monster/405.Zl
+Data/Mir2Monster/406.Zl
+Data/Mir2Monster/407.Zl
+Data/Mir2Monster/408.Zl
+Data/Mir2Monster/409.Zl
+Data/Mir2Monster/410.Zl
+Data/Mir2Monster/411.Zl
+Data/Mir2Monster/412.Zl
+Data/Mir2Monster/413.Zl
+Data/Mir2Monster/414.Zl
+Data/Mir2Monster/415.Zl
+Data/Mir2Monster/416.Zl
+Data/Mir2Monster/417.Zl
+Data/Mir2Monster/418.Zl
+Data/Mir2Monster/419.Zl
+Data/Mir2Monster/420.Zl
+Data/Mir2Monster/421.Zl
+Data/Mir2Monster/422.Zl
+```
+

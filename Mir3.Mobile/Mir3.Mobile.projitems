@@ -12,6 +12,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)AccountRequestGate.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)OriginalAndroidPackets.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)OriginalAndroidPacketOrder.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)RepositoryServerPacketOrder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ConnectionDiagnostics.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)LibraryHeaderValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Controls\DXAnimatedControl.cs" />

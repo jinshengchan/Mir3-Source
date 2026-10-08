@@ -47,6 +47,9 @@
   <PropertyGroup Condition="'$(BundledResourceTestBuild)' == 'true'">
     <DefineConstants>$(DefineConstants);BUNDLED_RESOURCE_TEST</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(RepositoryServerProtocol)' == 'true'">
+    <DefineConstants>$(DefineConstants);REPOSITORY_SERVER_PROTOCOL</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FontStashSharp.MonoGame" Version="1.2.7" />
     <PackageReference Include="MonoGame.Framework.Android" Version="3.8.1.303" />

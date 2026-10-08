@@ -270,3 +270,25 @@ classified as LevelChanged with a 10436-byte payload and handler errors. The use
 confirmed the new server is an externally obtained binary. Its actual protocol
 assembly is required to compare packet numbering; this UI fix does not establish
 login compatibility with that server and no packet IDs have been guessed.
+
+At the user's request, the bundled test workflow now builds with
+`RepositoryServerProtocol=true`. It compiles `ServerLibrary/ServerLibrary.csproj`
+and derives the canonical 484-packet wire table from that Release assembly.
+The runtime fixture loads the actual server assembly, runs its Packet static
+initializer and checks every ID independently against the metadata report,
+then checks Android's pinned table, serialized start request, reply direction,
+metadata-order independence and unknown-type rejection. CI refuses stale tables.
+In this mode the five original-APK-only packet types, MarriageTeleport fields
+and ClientControl.OnTeamHookTab are excluded. The final APK protocol is compared
+against the newly built repository server, including reachable model property
+layouts and login enums. Server Login is 249, client Login 250, server
+RequestStartGame 414 and client RequestStartGame 415. The original-APK mode
+remains available when the flag is absent. The login marker is `仓库协议测试`.
+
+All 156 available original resource assets (Data.zip, base ZIP, manifests and
+152 compressed patches) remain bundled and verified. This incorporates all
+available packages; it does not synthesize images missing from those packages.
+The server addresses, phone update credential preservation and missing UI
+bootstrap recovery remain unchanged. The externally downloaded running server
+has not been inspected, so compatibility is verified against repository source,
+with actual login to be tested on the phone.

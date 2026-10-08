@@ -57,7 +57,9 @@ namespace Library.Network
                 Packets.Add(type);
             }
 
-#if ANDROID && BUNDLED_RESOURCE_TEST
+#if ANDROID && BUNDLED_RESOURCE_TEST && REPOSITORY_SERVER_PROTOCOL
+            RepositoryServerPacketOrder.Apply(Packets);
+#elif ANDROID && BUNDLED_RESOURCE_TEST
             OriginalAndroidPacketOrder.Apply(Packets);
 #else
             Packets.Sort((x1, x2) =>

@@ -1704,7 +1704,7 @@ namespace Library.Network.ClientPackets  //网络客户端数据包库
     /// </summary>
     public sealed class MarriageTeleport : Packet
     {
-#if ANDROID && BUNDLED_RESOURCE_TEST
+#if ANDROID && BUNDLED_RESOURCE_TEST && !REPOSITORY_SERVER_PROTOCOL
         public bool TeamHook { get; set; }
         public string TeamLeaderName { get; set; }
         public int TeamHookMapIndex { get; set; }

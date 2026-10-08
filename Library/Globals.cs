@@ -750,7 +750,7 @@ namespace Library
         /// 是否显示挂机页
         /// </summary>
         public bool OnAutoHookTab { get; set; }
-#if ANDROID && BUNDLED_RESOURCE_TEST
+#if ANDROID && BUNDLED_RESOURCE_TEST && !REPOSITORY_SERVER_PROTOCOL
         // Original 1403 wire layout: this byte precedes OnBrightBox.
         public bool OnTeamHookTab { get; set; }
 #endif

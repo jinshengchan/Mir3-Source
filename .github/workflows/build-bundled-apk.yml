@@ -39,7 +39,6 @@ jobs:
           mkdir -p .build
           gdown 'https://drive.google.com/uc?id=1Fts3QP26o2YbJ08Pb99GNv6QiHv86D8S' -O .build/sample.apk
           python3 tools/inspect-apk-protocol.py .build/sample.apk --output .build/ORIGINAL-PROTOCOL.json
-          python3 tools/verify-runtime-packet-order.py .build/ORIGINAL-PROTOCOL.json
           python3 - <<'PY'
           import os, pathlib, shutil, zipfile
           source = pathlib.Path('.build/sample.apk')
@@ -65,6 +64,13 @@ jobs:
           if count != 156:
               raise ValueError('Sample resource layout changed; review before building')
           PY
+      - name: Compile repository server and verify its actual protocol
+        run: |
+          dotnet build ServerLibrary/ServerLibrary.csproj -c Release -p:CopyLocalLockFileAssemblies=true
+          python3 tools/generate-repository-protocol.py ServerLibrary/bin/Release/netstandard2.0/Library.dll \
+            --report .build/REPOSITORY-PROTOCOL.json --order Mir3.Mobile/RepositoryServerPacketOrder.cs --check
+          python3 tools/verify-runtime-packet-order.py .build/REPOSITORY-PROTOCOL.json --repository \
+            --server-assembly ServerLibrary/bin/Release/netstandard2.0/Library.dll
       - name: Verify actual source resource checksums
         run: python3 tools/verify-bundled-resources.py "$BUNDLE_DIR"
       - name: Test resource header recovery against real bundled metadata
@@ -87,6 +93,7 @@ jobs:
             -p:JavaSdkDirectory="$JAVA_HOME" \
             -p:RuntimeIdentifier=android-arm64 \
             -p:BundledResourceTestBuild=true \
+            -p:RepositoryServerProtocol=true \
             -p:RunAOTCompilation=False -p:AotAssemblies=False \
             -p:AndroidEnableProfiledAot=False -p:PublishTrimmed=False
       - name: Verify package and signature
@@ -106,7 +113,7 @@ jobs:
             --report .build/BUNDLED-INTEGRITY.json
           python3 tools/inspect-apk-protocol.py \
             Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk \
-            --output .build/APK-PROTOCOL.json --compare .build/ORIGINAL-PROTOCOL.json
+            --output .build/APK-PROTOCOL.json --compare .build/REPOSITORY-PROTOCOL.json
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-METADATA.txt
           python3 - <<'PY'
@@ -124,6 +131,7 @@ jobs:
             .build/APK-METADATA.txt
             .build/BUNDLED-INTEGRITY.json
             .build/ORIGINAL-PROTOCOL.json
+            .build/REPOSITORY-PROTOCOL.json
             .build/APK-PROTOCOL.json
           if-no-files-found: error
           include-hidden-files: true

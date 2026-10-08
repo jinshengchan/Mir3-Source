@@ -379,7 +379,7 @@ def main():
                      'Library.DisconnectReason', 'Library.Platform', 'Library.StartGameResult'):
             if expected[0]['enums'].get(name) != reports[0]['enums'].get(name):
                 raise ValueError('Login enum differs from original APK: ' + name)
-        print(f'::notice title=Original Android protocol compatibility::Verified {len(reports[0]["packets"])} packet IDs, property layouts and login result enums against original APK')
+        print(f'::notice title=Packet protocol compatibility::Verified {len(reports[0]["packets"])} packet IDs, property layouts and login result enums against comparison report')
     for report in reports:
         print(report['assembly'], 'packet count:', len(report['packets']))
         for packet in report['packets']:

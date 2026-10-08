@@ -1,4 +1,4 @@
-#if ANDROID && BUNDLED_RESOURCE_TEST
+#if ANDROID && BUNDLED_RESOURCE_TEST && !REPOSITORY_SERVER_PROTOCOL
 using System.Collections.Generic;
 using System.Drawing;
 

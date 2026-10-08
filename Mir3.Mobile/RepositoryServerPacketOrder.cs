@@ -1,14 +1,11 @@
-#if ANDROID && BUNDLED_RESOURCE_TEST && !REPOSITORY_SERVER_PROTOCOL
+#if ANDROID && BUNDLED_RESOURCE_TEST && REPOSITORY_SERVER_PROTOCOL
 using System;
 using System.Collections.Generic;
 
 namespace Library.Network
 {
-    // Canonical runtime table from the working 1403 APK, application assembly
-    // SHA256: 0668a86de0adec777ec9c273de680822dfb4d12c4d8119628de7e1255cf42838.
-    // Packet's legacy comparer treats same-named client/server types as equal.
-    // List.Sort is unstable, so new metadata order can swap their wire IDs.
-    internal static class OriginalAndroidPacketOrder
+    // Generated from the compiled repository server; do not reorder manually.
+    internal static class RepositoryServerPacketOrder
     {
         internal const string WireOrderNames = @"Library.Network.GeneralPackets.CheckVersion
 Library.Network.GeneralPackets.Connected
@@ -38,8 +35,8 @@ Library.Network.ClientPackets.AutoFightConfChanged
 Library.Network.ClientPackets.AutoPotionLinkChanged
 Library.Network.ServerPackets.AutoTimeChanged
 Library.Network.ClientPackets.BeltLinkChanged
-Library.Network.ServerPackets.BlockAdd
 Library.Network.ClientPackets.BlockAdd
+Library.Network.ServerPackets.BlockAdd
 Library.Network.ClientPackets.BlockRemove
 Library.Network.ServerPackets.BlockRemove
 Library.Network.ServerPackets.BuffAdd
@@ -50,10 +47,10 @@ Library.Network.ServerPackets.BuffTime
 Library.Network.ClientPackets.CanelSellCharacter
 Library.Network.ServerPackets.ChangeAttackMode
 Library.Network.ClientPackets.ChangeAttackMode
-Library.Network.ServerPackets.ChangePassword
 Library.Network.ClientPackets.ChangePassword
-Library.Network.ClientPackets.ChangePetMode
+Library.Network.ServerPackets.ChangePassword
 Library.Network.ServerPackets.ChangePetMode
+Library.Network.ClientPackets.ChangePetMode
 Library.Network.ServerPackets.ChangeWeather
 Library.Network.ClientPackets.Chat
 Library.Network.ServerPackets.Chat
@@ -64,14 +61,13 @@ Library.Network.ServerPackets.CoinTossOnTarget
 Library.Network.ClientPackets.ComSortingConf1Changed
 Library.Network.ClientPackets.ComSortingConfChanged
 Library.Network.ServerPackets.CombatTime
-Library.Network.ClientPackets.CompanionAdopt
 Library.Network.ServerPackets.CompanionAdopt
+Library.Network.ClientPackets.CompanionAdopt
 Library.Network.ClientPackets.CompanionAutoFeedUnlock
 Library.Network.ServerPackets.CompanionAutoFeedUnlocked
-Library.Network.ClientPackets.CompanionGridRefresh
 Library.Network.ServerPackets.CompanionGridRefresh
+Library.Network.ClientPackets.CompanionGridRefresh
 Library.Network.ServerPackets.CompanionItemsGained
-Library.Network.ClientPackets.CompanionItemsToInventory
 Library.Network.ClientPackets.CompanionPickUpSkipUpdate
 Library.Network.ClientPackets.CompanionRetrieve
 Library.Network.ServerPackets.CompanionRetrieve
@@ -79,8 +75,8 @@ Library.Network.ServerPackets.CompanionShapeUpdate
 Library.Network.ServerPackets.CompanionSkillUpdate
 Library.Network.ClientPackets.CompanionStore
 Library.Network.ServerPackets.CompanionStore
-Library.Network.ClientPackets.CompanionUnlock
 Library.Network.ServerPackets.CompanionUnlock
+Library.Network.ClientPackets.CompanionUnlock
 Library.Network.ServerPackets.CompanionUpdate
 Library.Network.ServerPackets.CompanionWeightUpdate
 Library.Network.ServerPackets.ConquestWarFlagFightEnd
@@ -104,8 +100,8 @@ Library.Network.ServerPackets.DataObjectMonster
 Library.Network.ServerPackets.DataObjectPlayer
 Library.Network.ServerPackets.DataObjectRemove
 Library.Network.ServerPackets.DayChanged
-Library.Network.ClientPackets.DeleteCharacter
 Library.Network.ServerPackets.DeleteCharacter
+Library.Network.ClientPackets.DeleteCharacter
 Library.Network.ServerPackets.DiyObjectAttack
 Library.Network.ServerPackets.DiyObjectEffect
 Library.Network.ServerPackets.DiyObjectMagic
@@ -134,8 +130,8 @@ Library.Network.ClientPackets.FriendRequest
 Library.Network.ClientPackets.FriendResponse
 Library.Network.ServerPackets.FriendSwitch
 Library.Network.ClientPackets.FriendSwitch
-Library.Network.ServerPackets.FriendToggle
 Library.Network.ClientPackets.FriendToggle
+Library.Network.ServerPackets.FriendToggle
 Library.Network.ServerPackets.GainedExperience
 Library.Network.ServerPackets.GameGoldChanged
 Library.Network.ClientPackets.GameGoldRecharge
@@ -161,8 +157,8 @@ Library.Network.ServerPackets.GroupMember
 Library.Network.ServerPackets.GroupRemove
 Library.Network.ClientPackets.GroupRemove
 Library.Network.ClientPackets.GroupResponse
-Library.Network.ServerPackets.GroupSwitch
 Library.Network.ClientPackets.GroupSwitch
+Library.Network.ServerPackets.GroupSwitch
 Library.Network.ServerPackets.GuildActiveCountChange
 Library.Network.ServerPackets.GuildAlliance
 Library.Network.ClientPackets.GuildAlliance
@@ -178,8 +174,8 @@ Library.Network.ServerPackets.GuildChanged
 Library.Network.ServerPackets.GuildConquestDate
 Library.Network.ServerPackets.GuildConquestFinished
 Library.Network.ServerPackets.GuildConquestStarted
-Library.Network.ClientPackets.GuildCreate
 Library.Network.ServerPackets.GuildCreate
+Library.Network.ClientPackets.GuildCreate
 Library.Network.ServerPackets.GuildDayReset
 Library.Network.ClientPackets.GuildDonation
 Library.Network.ClientPackets.GuildEditMember
@@ -195,8 +191,8 @@ Library.Network.ServerPackets.GuildIncreaseStorage
 Library.Network.ClientPackets.GuildIncreaseStorage
 Library.Network.ServerPackets.GuildInfo
 Library.Network.ServerPackets.GuildInvite
-Library.Network.ServerPackets.GuildInviteMember
 Library.Network.ClientPackets.GuildInviteMember
+Library.Network.ServerPackets.GuildInviteMember
 Library.Network.ServerPackets.GuildKick
 Library.Network.ClientPackets.GuildKickMember
 Library.Network.ServerPackets.GuildMemberContribution
@@ -207,15 +203,15 @@ Library.Network.ServerPackets.GuildNoticeChanged
 Library.Network.ClientPackets.GuildRequestConquest
 Library.Network.ClientPackets.GuildResponse
 Library.Network.ServerPackets.GuildStats
-Library.Network.ServerPackets.GuildTax
 Library.Network.ClientPackets.GuildTax
-Library.Network.ServerPackets.GuildToggle
+Library.Network.ServerPackets.GuildTax
 Library.Network.ClientPackets.GuildToggle
-Library.Network.ClientPackets.GuildUpdate
+Library.Network.ServerPackets.GuildToggle
 Library.Network.ServerPackets.GuildUpdate
+Library.Network.ClientPackets.GuildUpdate
 Library.Network.ServerPackets.GuildVaultNoticeChanged
-Library.Network.ServerPackets.GuildWar
 Library.Network.ClientPackets.GuildWar
+Library.Network.ServerPackets.GuildWar
 Library.Network.ServerPackets.GuildWarFinished
 Library.Network.ServerPackets.GuildWarStarted
 Library.Network.ServerPackets.GuildWithDrawal
@@ -227,17 +223,17 @@ Library.Network.ServerPackets.HealthChanged
 Library.Network.ServerPackets.HelmetToggle
 Library.Network.ClientPackets.HelmetToggle
 Library.Network.ClientPackets.Hermit
-Library.Network.ClientPackets.HuiShengToggle
 Library.Network.ServerPackets.HuiShengToggle
+Library.Network.ClientPackets.HuiShengToggle
 Library.Network.ServerPackets.HuntGoldChanged
 Library.Network.ClientPackets.Inspect
 Library.Network.ServerPackets.Inspect
-Library.Network.ServerPackets.InspectMagery
 Library.Network.ClientPackets.InspectMagery
+Library.Network.ServerPackets.InspectMagery
 Library.Network.ServerPackets.InspectPackSack
 Library.Network.ClientPackets.InspectPackSack
-Library.Network.ClientPackets.InventoryRefresh
 Library.Network.ServerPackets.InventoryRefresh
+Library.Network.ClientPackets.InventoryRefresh
 Library.Network.ClientPackets.InventoryTidy
 Library.Network.ServerPackets.ItemCellRefresh
 Library.Network.ServerPackets.ItemChanged
@@ -245,13 +241,13 @@ Library.Network.ClientPackets.ItemDelete
 Library.Network.ClientPackets.ItemDrop
 Library.Network.ServerPackets.ItemDurability
 Library.Network.ServerPackets.ItemExperience
-Library.Network.ServerPackets.ItemLock
 Library.Network.ClientPackets.ItemLock
+Library.Network.ServerPackets.ItemLock
 Library.Network.ServerPackets.ItemMove
 Library.Network.ClientPackets.ItemMove
 Library.Network.ServerPackets.ItemRefineChange
-Library.Network.ClientPackets.ItemSplit
 Library.Network.ServerPackets.ItemSplit
+Library.Network.ClientPackets.ItemSplit
 Library.Network.ServerPackets.ItemStatsChanged
 Library.Network.ServerPackets.ItemStatsRefreshed
 Library.Network.ClientPackets.ItemUse
@@ -260,8 +256,8 @@ Library.Network.ServerPackets.ItemsChanged
 Library.Network.ServerPackets.ItemsGained
 Library.Network.ClientPackets.JoinStarterGuild
 Library.Network.ServerPackets.LevelChanged
-Library.Network.ClientPackets.Login
 Library.Network.ServerPackets.Login
+Library.Network.ClientPackets.Login
 Library.Network.ClientPackets.Logout
 Library.Network.ClientPackets.Magic
 Library.Network.ServerPackets.MagicCooldown
@@ -283,8 +279,8 @@ Library.Network.ServerPackets.MapChanged
 Library.Network.ServerPackets.MapEffect
 Library.Network.ServerPackets.MapMagicRestriction
 Library.Network.ServerPackets.MapTime
-Library.Network.ClientPackets.MarketPlaceBuy
 Library.Network.ServerPackets.MarketPlaceBuy
+Library.Network.ClientPackets.MarketPlaceBuy
 Library.Network.ClientPackets.MarketPlaceCancelConsign
 Library.Network.ClientPackets.MarketPlaceConsign
 Library.Network.ServerPackets.MarketPlaceConsign
@@ -312,32 +308,32 @@ Library.Network.ClientPackets.Mining
 Library.Network.ClientPackets.Mount
 Library.Network.ServerPackets.MountFailed
 Library.Network.ClientPackets.Move
-Library.Network.ServerPackets.NPCAccessoryLevelUp
 Library.Network.ClientPackets.NPCAccessoryLevelUp
+Library.Network.ServerPackets.NPCAccessoryLevelUp
 Library.Network.ClientPackets.NPCAccessoryReset
 Library.Network.ClientPackets.NPCAccessoryUpgrade
 Library.Network.ServerPackets.NPCAccessoryUpgrade
 Library.Network.ClientPackets.NPCBookRefine
 Library.Network.ClientPackets.NPCButton
 Library.Network.ClientPackets.NPCBuy
-Library.Network.ServerPackets.NPCBuyBack
 Library.Network.ClientPackets.NPCBuyBack
-Library.Network.ServerPackets.NPCBuyBackSeach
+Library.Network.ServerPackets.NPCBuyBack
 Library.Network.ClientPackets.NPCBuyBackSeach
+Library.Network.ServerPackets.NPCBuyBackSeach
 Library.Network.ClientPackets.NPCCall
-Library.Network.ServerPackets.NPCClose
 Library.Network.ClientPackets.NPCClose
+Library.Network.ServerPackets.NPCClose
 Library.Network.ClientPackets.NPCEnchantmentSynthesis
 Library.Network.ClientPackets.NPCFragment
-Library.Network.ClientPackets.NPCMasterRefine
 Library.Network.ServerPackets.NPCMasterRefine
+Library.Network.ClientPackets.NPCMasterRefine
 Library.Network.ClientPackets.NPCMasterRefineEvaluate
-Library.Network.ClientPackets.NPCRefine
 Library.Network.ServerPackets.NPCRefine
+Library.Network.ClientPackets.NPCRefine
 Library.Network.ServerPackets.NPCRefineRetrieve
 Library.Network.ClientPackets.NPCRefineRetrieve
-Library.Network.ClientPackets.NPCRefinementStone
 Library.Network.ServerPackets.NPCRefinementStone
+Library.Network.ClientPackets.NPCRefinementStone
 Library.Network.ServerPackets.NPCRepair
 Library.Network.ClientPackets.NPCRepair
 Library.Network.ServerPackets.NPCResponse
@@ -347,16 +343,16 @@ Library.Network.ServerPackets.NPCSpecialRepair
 Library.Network.ClientPackets.NPCSpecialRepair
 Library.Network.ClientPackets.NPCWeaponCraft
 Library.Network.ServerPackets.NPCWeaponCraft
-Library.Network.ServerPackets.NPCWeaponUpgrade
 Library.Network.ClientPackets.NPCWeaponUpgrade
+Library.Network.ServerPackets.NPCWeaponUpgrade
 Library.Network.ClientPackets.NPCWeaponUpgradeRetrieve
 Library.Network.ClientPackets.NameChange
-Library.Network.ServerPackets.NewAccount
 Library.Network.ClientPackets.NewAccount
+Library.Network.ServerPackets.NewAccount
 Library.Network.ServerPackets.NewAuctionFlash
 Library.Network.ServerPackets.NewAuctionFlashIndex
-Library.Network.ServerPackets.NewCharacter
 Library.Network.ClientPackets.NewCharacter
+Library.Network.ServerPackets.NewCharacter
 Library.Network.ServerPackets.NewMagic
 Library.Network.ServerPackets.ObjectAttack
 Library.Network.ServerPackets.ObjectBuffAdd
@@ -440,26 +436,22 @@ Library.Network.ServerPackets.SelectLogout
 Library.Network.ClientPackets.SellCharacter
 Library.Network.ClientPackets.SellCharacterSearch
 Library.Network.ServerPackets.SellCharacterSearch
-Library.Network.ClientPackets.ShieldToggle
 Library.Network.ServerPackets.ShieldToggle
+Library.Network.ClientPackets.ShieldToggle
 Library.Network.ClientPackets.ShortcutDialogClicked
 Library.Network.ServerPackets.ShortcutsLoaded
 Library.Network.ServerPackets.ShowConfirmationBox
 Library.Network.ServerPackets.ShowInputBox
 Library.Network.ServerPackets.ShowItemSource
-Library.Network.ClientPackets.StartGame
 Library.Network.ServerPackets.StartGame
+Library.Network.ClientPackets.StartGame
 Library.Network.ServerPackets.StartObserver
 Library.Network.ServerPackets.StatsUpdate
-Library.Network.ClientPackets.StorageItemRefresh
 Library.Network.ServerPackets.StorageItemRefresh
+Library.Network.ClientPackets.StorageItemRefresh
 Library.Network.ServerPackets.StorageSize
 Library.Network.ServerPackets.TaishanBuffChanged
 Library.Network.ClientPackets.TakeOffAchievementTitle
-Library.Network.ClientPackets.TeamHookLeaderLocation
-Library.Network.ServerPackets.TeamHookLeaderLocation
-Library.Network.ClientPackets.TeamHookTownSupply
-Library.Network.ServerPackets.TeamHookTownSupply
 Library.Network.ClientPackets.TeleportRing
 Library.Network.ClientPackets.TossCoin
 Library.Network.ClientPackets.TownRevive
@@ -467,8 +459,8 @@ Library.Network.ServerPackets.TradeAddGold
 Library.Network.ClientPackets.TradeAddGold
 Library.Network.ClientPackets.TradeAddItem
 Library.Network.ServerPackets.TradeAddItem
-Library.Network.ClientPackets.TradeClose
 Library.Network.ServerPackets.TradeClose
+Library.Network.ClientPackets.TradeClose
 Library.Network.ClientPackets.TradeConfirm
 Library.Network.ServerPackets.TradeGoldAdded
 Library.Network.ServerPackets.TradeItemAdded
@@ -504,13 +496,13 @@ Library.Network.ServerPackets.sc_FixedPointList";
         {
             string[] names = WireOrderNames.Split('\n');
             if (packets.Count != names.Length)
-                throw new InvalidOperationException("Original Android packet count mismatch.");
+                throw new InvalidOperationException("Repository server packet count mismatch.");
             var ids = new Dictionary<string, int>(StringComparer.Ordinal);
             for (int i = 0; i < names.Length; i++)
                 ids.Add(names[i].TrimEnd('\r'), i);
             foreach (Type type in packets)
                 if (!ids.ContainsKey(type.FullName))
-                    throw new InvalidOperationException("Unknown original Android packet: " + type.FullName);
+                    throw new InvalidOperationException("Unknown repository server packet: " + type.FullName);
             packets.Sort((a, b) => ids[a.FullName].CompareTo(ids[b.FullName]));
         }
     }

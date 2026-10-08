@@ -6,6 +6,7 @@ import json
 import pathlib
 import re
 import subprocess
+import shutil
 import zipfile
 
 
@@ -79,6 +80,54 @@ def inspect(path, repository, output):
     print('::notice title=Resource containers::' + '; '.join(containers))
     print('::notice title=Required files absent at archive level::' + '; '.join(result['critical_missing']))
     print(f"::notice title=Source catalog gaps::{len(missing)} optional or required source libraries absent; {len(result['zero_length_files'])} empty files. See summary for complete list.")
+    return result
+
+
+def inspect_update(archive, repository, output):
+    outer = inspect(archive, repository, output / 'outer')
+    extracted = output / 'extracted'
+    extracted.mkdir(parents=True, exist_ok=True)
+    subprocess.run(['7z', 'x', '-y', '-o' + str(extracted), str(archive)], check=True, stdout=subprocess.DEVNULL)
+    manifests = list(extracted.rglob('PList.Bin'))
+    if len(manifests) != 1:
+        raise ValueError('Expected one update manifest, found ' + str(len(manifests)))
+    update = manifests[0].parent
+    for name in ('APKVersion.bin', 'DataAdd.zip'):
+        if not (update / name).is_file():
+            raise ValueError('Missing update package file: ' + name)
+    scope = __import__('runpy').run_path(str(repository / 'tools/verify-bundled-resources.py'))
+    source = output / 'source-assets'
+    source.mkdir(parents=True, exist_ok=True)
+    (source / 'LocalUpdate').symlink_to(update.resolve(), target_is_directory=True)
+    integrity = scope['verify'](source)
+    (output / 'update-integrity.json').write_text(json.dumps(integrity, indent=2) + '\n')
+    inner = inspect(update / 'DataAdd.zip', repository, output / 'base')
+    installed = {normalize(e['name']).lower() for e in inner['entries']}
+    with (update / 'PList.Bin').open('rb') as stream:
+        while stream.tell() < (update / 'PList.Bin').stat().st_size:
+            name = scope['read_string'](stream)
+            scope['read_length'](stream)
+            scope['read_hash'](stream)
+            installed.add(name.replace('\\', '/').lower())
+    missing = [p for p in inner['missing_source_catalog'] if p.replace('\\', '/').lower() not in installed]
+    critical = [p for p in inner['critical_missing'] if p.lower() not in installed]
+    result = {'outer': {k: v for k, v in outer.items() if k != 'entries'}, 'integrity': integrity,
+              'combined_critical_missing': critical, 'combined_source_catalog_missing': missing,
+              'update_files': [{'name': str(p.relative_to(update)), 'size': p.stat().st_size} for p in update.rglob('*') if p.is_file()]}
+    (output / 'combined-report.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
+    lines = ['# Combined base and update resources', '',
+             f"All checksums passed: {integrity['patches_verified']} patches; base MD5 `{integrity['actual_md5']}`.", '',
+             '## Critical files missing after applying all patches', '', *['- `' + p + '`' for p in critical], '',
+             '## Source catalog gaps after applying all patches (includes optional libraries)', '', *['- `' + p + '`' for p in missing], '',
+             '## Update files', '', *[f"- `{p['name']}` ({p['size']} bytes)" for p in result['update_files']]]
+    (output / 'combined-report.md').write_text('\n'.join(lines) + '\n')
+    print(f"::notice title=Update package checksums::{integrity['patches_verified']} patches and base ZIP verified; base MD5 {integrity['actual_md5']}")
+    print('::notice title=Combined critical missing files::' + ('; '.join(critical) or 'None'))
+    print(f"::notice title=Combined catalog gaps::{len(missing)} files; includes optional libraries")
+    for i in range(0, len(missing), 30):
+        print('::notice title=Catalog gap names::' + '; '.join(missing[i:i + 30]))
+    for i in range(0, len(result['update_files']), 30):
+        print('::notice title=Update file inventory::' + '; '.join(p['name'] for p in result['update_files'][i:i + 30]))
     return result
 
 

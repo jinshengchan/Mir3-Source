@@ -33,14 +33,16 @@ jobs:
           import pathlib, runpy
           scope = runpy.run_path('tools/inspect-resource-package.py')
           try:
-              scope['inspect'](pathlib.Path('.build/resources.archive'), pathlib.Path('.'), pathlib.Path('.build/resource-inspection'))
+              scope['inspect_update'](pathlib.Path('.build/resources.archive'), pathlib.Path('.'), pathlib.Path('.build/resource-inspection'))
           except Exception as error:
               print('::error title=Resource inspection failed::' + str(error).replace('\n', '%0A'))
               raise
           PY
-          cat .build/resource-inspection/resource-report.md >> "$GITHUB_STEP_SUMMARY"
+          cat .build/resource-inspection/combined-report.md .build/resource-inspection/base/resource-report.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: replacement-resource-inspection
-          path: .build/resource-inspection/
+          path: |
+            .build/resource-inspection/**/*.json
+            .build/resource-inspection/**/*.md
           retention-days: 3

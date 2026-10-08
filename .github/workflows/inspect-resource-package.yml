@@ -42,6 +42,21 @@ jobs:
           if test -f .build/resource-inspection/base/resource-report.md; then
             cat .build/resource-inspection/base/resource-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
+      - name: Report final combined resource findings
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          root = pathlib.Path('.build/resource-inspection')
+          report = json.loads((root / 'combined-report.json').read_text())
+          integrity = report['integrity']
+          print('::notice title=Combined update integrity::' + json.dumps(integrity, ensure_ascii=False))
+          print('::notice title=Combined critical missing files::' + '; '.join(report['combined_critical_missing']))
+          print('::notice title=Combined catalog gaps::' + str(len(report['combined_source_catalog_missing'])))
+          print('::notice title=Combined title resource::' + ('Data/Title.Zl absent' if 'Data/Title.Zl' in report['combined_source_catalog_missing'] else 'Title file present'))
+          print('::notice title=Empty archive files::' + '; '.join(report['outer']['zero_length_files']))
+          files = report['update_files']
+          print('::notice title=Update file inventory::' + '; '.join(p['name'] for p in files))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: replacement-resource-inspection

@@ -40,6 +40,10 @@ def inventory(path):
 
 def inspect(path, repository, output):
     kind, entries = inventory(path)
+    archive_hash = hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            archive_hash.update(block)
     names = {normalize(e['name']).lower(): e for e in entries}
     catalog = (repository / 'Library/Libraries.cs').read_text(encoding='utf-8-sig')
     catalog = '\n'.join(line for line in catalog.splitlines() if not line.lstrip().startswith('//'))
@@ -50,7 +54,7 @@ def inspect(path, repository, output):
               for group in ('Data', 'Map', 'Sound', 'LocalUpdate')}
     containers = [e['name'] for e in entries if pathlib.PurePosixPath(e['name']).name.lower() in ('data.zip', 'dataadd.zip', 'plist.bin', 'apkversion.bin')]
     result = {'format': kind, 'archive_bytes': path.stat().st_size,
-              'archive_sha256': hashlib.file_digest(path.open('rb'), 'sha256').hexdigest(),
+              'archive_sha256': archive_hash.hexdigest(),
               'archive_integrity': 'passed', 'files': len(entries), 'uncompressed_bytes': sum(e['size'] for e in entries),
               'groups': groups, 'containers': containers,
               'critical_missing': [p for p in critical if p.lower() not in names],

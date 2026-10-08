@@ -60,7 +60,8 @@ namespace Mir3.Droid
             var name = MainActivity.Main.GetVersionName();
 #if DEBUG
 #else
-            if (Config.VersionCode != code || Config.VersionName != name)
+            if (Config.VersionCode != code || Config.VersionName != name ||
+                !File.Exists(Path.Combine(CEnvir.MobileClientPath, "Data", "StartMobileScene.Zl")))
 #endif
             {
                 Patch.BundledResources.InstallZip(() => GetFileStream("Data.zip"), CEnvir.MobileClientPath);

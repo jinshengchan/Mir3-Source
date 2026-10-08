@@ -257,3 +257,16 @@ back up phone configuration before doing so. Packet ordering remains matched to
 the original inspected Android APK. The new server's binary and actual login
 have not been verified; missing server-side handlers require a separate protocol
 comparison, not a claim that changing endpoints resolves them.
+
+The follow-up new-server phone log repeatedly requests the missing local
+`Data/StartMobileScene.Zl` header and receives HTTP NotFound. `ReadLibrary` only
+requests headers when the local file does not exist. Bootstrap previously skipped
+`Data.zip` when the phone's configured APK version matched the installed APK;
+manually supplied Game settings can therefore suppress missing UI installation.
+Native startup now also installs the bootstrap when StartMobileScene.Zl is
+missing, retaining the existing test-build password preservation and endpoint
+application. The same log shows login request ID 250, then incoming ID 249
+classified as LevelChanged with a 10436-byte payload and handler errors. The user
+confirmed the new server is an externally obtained binary. Its actual protocol
+assembly is required to compare packet numbering; this UI fix does not establish
+login compatibility with that server and no packet IDs have been guessed.

@@ -38,7 +38,10 @@ jobs:
               print('::error title=Resource inspection failed::' + str(error).replace('\n', '%0A'))
               raise
           PY
-          cat .build/resource-inspection/combined-report.md .build/resource-inspection/base/resource-report.md >> "$GITHUB_STEP_SUMMARY"
+          cat .build/resource-inspection/combined-report.md >> "$GITHUB_STEP_SUMMARY"
+          if test -f .build/resource-inspection/base/resource-report.md; then
+            cat .build/resource-inspection/base/resource-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: replacement-resource-inspection

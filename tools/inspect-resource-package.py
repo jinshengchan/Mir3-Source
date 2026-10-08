@@ -6,7 +6,8 @@ import json
 import pathlib
 import re
 import subprocess
-import shutil
+import gzip
+import io
 import zipfile
 
 
@@ -96,19 +97,62 @@ def inspect_update(archive, repository, output):
         if not (update / name).is_file():
             raise ValueError('Missing update package file: ' + name)
     scope = __import__('runpy').run_path(str(repository / 'tools/verify-bundled-resources.py'))
-    source = output / 'source-assets'
-    source.mkdir(parents=True, exist_ok=True)
-    (source / 'LocalUpdate').symlink_to(update.resolve(), target_is_directory=True)
-    integrity = scope['verify'](source)
-    (output / 'update-integrity.json').write_text(json.dumps(integrity, indent=2) + '\n')
-    inner = inspect(update / 'DataAdd.zip', repository, output / 'base')
-    installed = {normalize(e['name']).lower() for e in inner['entries']}
+    issues = []
+    with (update / 'APKVersion.bin').open('rb') as stream:
+        version = scope['read_string'](stream)
+        scope['read_string'](stream)
+        scope['read_length'](stream)
+        scope['read_hash'](stream)
+        base_name = scope['read_string'](stream)
+        expected_length = scope['read_length'](stream)
+        expected_hash = scope['read_hash'](stream)
+    if base_name != pathlib.PurePosixPath(base_name).name or '\\' in base_name:
+        raise ValueError('Invalid manifest base filename')
+    base = update / base_name
+    actual_length = base.stat().st_size if base.is_file() else None
+    actual_hash = None
+    if base.is_file():
+        with base.open('rb') as stream:
+            actual_hash = scope['digest'](stream)
+    if actual_length != expected_length:
+        issues.append(f'Base ZIP length mismatch: expected {expected_length}, actual {actual_length}')
+    if actual_hash != expected_hash:
+        issues.append(f'Base ZIP MD5 mismatch: expected {expected_hash.hex()}, actual {actual_hash.hex() if actual_hash else None}')
+    patches = []
+    verified = 0
     with (update / 'PList.Bin').open('rb') as stream:
         while stream.tell() < (update / 'PList.Bin').stat().st_size:
             name = scope['read_string'](stream)
-            scope['read_length'](stream)
-            scope['read_hash'](stream)
-            installed.add(name.replace('\\', '/').lower())
+            length = scope['read_length'](stream)
+            checksum = scope['read_hash'](stream)
+            patches.append(name)
+            patch = update / (name.replace('\\', '-').replace('/', '-') + '.gz')
+            if not patch.is_file():
+                issues.append('Missing patch: ' + name)
+                continue
+            if patch.stat().st_size != length:
+                issues.append(f'Patch length mismatch: {name}; expected {length}, actual {patch.stat().st_size}')
+            try:
+                with gzip.open(patch, 'rb') as data:
+                    digest = scope['digest'](data)
+                if digest != checksum:
+                    issues.append('Patch MD5 mismatch: ' + name)
+                elif patch.stat().st_size == length:
+                    verified += 1
+            except Exception as error:
+                issues.append(f'Patch decompression failed: {name}; {error}')
+    integrity = {'version': version, 'base': base_name, 'expected_bytes': expected_length,
+                 'actual_bytes': actual_length, 'expected_md5': expected_hash.hex(),
+                 'actual_md5': actual_hash.hex() if actual_hash else None,
+                 'patches_verified': verified, 'patches_declared': len(patches), 'issues': issues}
+    (output / 'update-integrity.json').write_text(json.dumps(integrity, indent=2) + '\n')
+    try:
+        inner = inspect(base, repository, output / 'base')
+    except Exception as error:
+        issues.append('Base ZIP inspection failed: ' + str(error))
+        inner = {'entries': [], 'missing_source_catalog': outer['missing_source_catalog'], 'critical_missing': outer['critical_missing']}
+    installed = {normalize(e['name']).lower() for e in inner['entries']}
+    installed.update(name.replace('\\', '/').lower() for name in patches)
     missing = [p for p in inner['missing_source_catalog'] if p.replace('\\', '/').lower() not in installed]
     critical = [p for p in inner['critical_missing'] if p.lower() not in installed]
     result = {'outer': {k: v for k, v in outer.items() if k != 'entries'}, 'integrity': integrity,
@@ -116,12 +160,16 @@ def inspect_update(archive, repository, output):
               'update_files': [{'name': str(p.relative_to(update)), 'size': p.stat().st_size} for p in update.rglob('*') if p.is_file()]}
     (output / 'combined-report.json').write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n')
     lines = ['# Combined base and update resources', '',
-             f"All checksums passed: {integrity['patches_verified']} patches; base MD5 `{integrity['actual_md5']}`.", '',
+             f"Verified patches: {verified}/{len(patches)}; base bytes expected {expected_length}, actual {actual_length}; base MD5 `{integrity['actual_md5']}`.", '',
+             '## Integrity issues', '', *['- ' + issue for issue in issues], '',
              '## Critical files missing after applying all patches', '', *['- `' + p + '`' for p in critical], '',
              '## Source catalog gaps after applying all patches (includes optional libraries)', '', *['- `' + p + '`' for p in missing], '',
              '## Update files', '', *[f"- `{p['name']}` ({p['size']} bytes)" for p in result['update_files']]]
     (output / 'combined-report.md').write_text('\n'.join(lines) + '\n')
-    print(f"::notice title=Update package checksums::{integrity['patches_verified']} patches and base ZIP verified; base MD5 {integrity['actual_md5']}")
+    print(f"::notice title=Update package checksums::{verified}/{len(patches)} patches verified; base bytes expected {expected_length}, actual {actual_length}; base MD5 {integrity['actual_md5']}")
+    for issue in issues:
+        print('::notice title=Resource integrity problem::' + issue)
+    print('::notice title=Empty archive files::' + '; '.join(outer['zero_length_files']))
     print('::notice title=Combined critical missing files::' + ('; '.join(critical) or 'None'))
     print(f"::notice title=Combined catalog gaps::{len(missing)} files; includes optional libraries")
     for i in range(0, len(missing), 30):

@@ -830,7 +830,7 @@ namespace Client.Models
                 {
                     if (customBuff != null)
                     {
-                        if (customBuff.OverheadTitle != 0)
+                        if (customBuff.OverheadTitle != 0 && customBuff.frameCount > 0)
                         {
                             if (HeadTopEffect == null)
                                 HeadTopCreate(customBuff.OverheadTitle * 20, customBuff.frameCount, customBuff.offSetX, customBuff.offSetY);
@@ -7591,6 +7591,8 @@ namespace Client.Models
         /// </summary>
         public void HeadTopCreate(int index, int fps, int offSetX, int offSetY)
         {
+            if (fps <= 0) return;
+
             HeadTopEffect = new MirEffect(index, fps, TimeSpan.FromMilliseconds(150), LibraryFile.Title, 0, 0, Globals.NoneColour)  //GM人物称号特效
             {
                 //Blend = true,  //注意32位图不要blend绘制

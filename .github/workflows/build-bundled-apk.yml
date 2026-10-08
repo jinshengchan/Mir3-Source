@@ -39,6 +39,8 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-34' 'build-tools;34.0.0'
       - name: Test resource installer and account request gate
         run: dotnet run --project tests/BundledResources.Tests/BundledResources.Tests.csproj
+      - name: Test zero-frame title and effect animation
+        run: dotnet run --project tests/MirEffects.Tests/MirEffects.Tests.csproj
       - name: Get authorized sample resources
         run: |
           python3 -m pip install 'gdown==5.2.0' 'dnfile==0.18.0' 'lz4==4.4.5'

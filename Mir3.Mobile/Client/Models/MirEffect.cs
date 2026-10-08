@@ -167,12 +167,15 @@ namespace Client.Models
             {
                 if (CEnvir.Now < StartTime) return 0;
 
+                TimeSpan duration = TotalDuration;
+                if (duration <= TimeSpan.Zero) return 0;
+
                 TimeSpan enlapsed = CEnvir.Now - StartTime;
 
                 if (Loop)
-                    enlapsed = TimeSpan.FromTicks(enlapsed.Ticks % TotalDuration.Ticks);
+                    enlapsed = TimeSpan.FromTicks(enlapsed.Ticks % duration.Ticks);
 
-                return StartLight + (EndLight - StartLight) * enlapsed.Ticks / TotalDuration.Ticks;
+                return StartLight + (EndLight - StartLight) * enlapsed.Ticks / duration.Ticks;
 
             }
         }
@@ -463,10 +466,14 @@ namespace Client.Models
         /// <returns></returns>
         protected virtual int GetFrame()
         {
+            // Empty server-configured titles must finish instead of stopping the game update.
+            TimeSpan duration = TotalDuration;
+            if (FrameCount <= 0 || duration <= TimeSpan.Zero) return FrameCount;
+
             TimeSpan enlapsed = CEnvir.Now - StartTime;
 
             if (Loop)
-                enlapsed = TimeSpan.FromTicks(enlapsed.Ticks % TotalDuration.Ticks);
+                enlapsed = TimeSpan.FromTicks(enlapsed.Ticks % duration.Ticks);
 
             if (Reversed)
             {

@@ -18,10 +18,26 @@ jobs:
         run: |
           python3 -m pip install 'gdown==5.2.0'
           mkdir -p .build
-          gdown 'https://drive.google.com/uc?id=11hocChF478kUzQB45F8jrcLIWAVKRC4X' -O .build/resources.archive
+          python3 - <<'PY'
+          import subprocess
+          result = subprocess.run(['gdown', 'https://drive.google.com/uc?id=11hocChF478kUzQB45F8jrcLIWAVKRC4X', '-O', '.build/resources.archive'], capture_output=True, text=True)
+          if result.returncode:
+              message = (result.stderr or result.stdout)[-2500:].replace('\n', '%0A').replace('\r', '')
+              print('::error title=Resource download failed::' + message)
+              raise SystemExit(result.returncode)
+          print(result.stderr[-500:])
+          PY
       - name: Check archive integrity and source resource catalog
         run: |
-          python3 tools/inspect-resource-package.py .build/resources.archive
+          python3 - <<'PY'
+          import pathlib, runpy
+          scope = runpy.run_path('tools/inspect-resource-package.py')
+          try:
+              scope['inspect'](pathlib.Path('.build/resources.archive'), pathlib.Path('.'), pathlib.Path('.build/resource-inspection'))
+          except Exception as error:
+              print('::error title=Resource inspection failed::' + str(error).replace('\n', '%0A'))
+              raise
+          PY
           cat .build/resource-inspection/resource-report.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:

@@ -6,6 +6,8 @@ on:
     paths-ignore:
       - tools/inspect-apk-protocol.py
       - .github/workflows/inspect-original-protocol.yml
+      - tools/inspect-resource-package.py
+      - .github/workflows/inspect-resource-package.yml
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ !contains(github.event.head_commit.message, '[resource-inspection]') }}
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:

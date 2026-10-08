@@ -1,0 +1,30 @@
+name: Inspect replacement resource package
+on:
+  push:
+    branches: [codex/resource-fixes-testing-20261007]
+    paths:
+      - tools/inspect-resource-package.py
+      - .github/workflows/inspect-resource-package.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download authorized replacement resources
+        run: |
+          python3 -m pip install 'gdown==5.2.0'
+          mkdir -p .build
+          gdown 'https://drive.google.com/uc?id=11hocChF478kUzQB45F8jrcLIWAVKRC4X' -O .build/resources.archive
+      - name: Check archive integrity and source resource catalog
+        run: |
+          python3 tools/inspect-resource-package.py .build/resources.archive
+          cat .build/resource-inspection/resource-report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: replacement-resource-inspection
+          path: .build/resource-inspection/
+          retention-days: 3

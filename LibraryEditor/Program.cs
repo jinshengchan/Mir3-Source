@@ -21,6 +21,19 @@ namespace LibraryEditor
             }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+
+            if (args.Length == 3 && string.Equals(args[0], "--item-settings-test", StringComparison.OrdinalIgnoreCase))
+            {
+                using (LMain previewOwner = new LMain())
+                using (ItemSettingsForm itemSettingsForm = new ItemSettingsForm())
+                {
+                    previewOwner.ShowInTaskbar = false;
+                    itemSettingsForm.Shown += delegate { itemSettingsForm.LoadTestData(args[1], args[2]); };
+                    Application.Run(itemSettingsForm);
+                }
+                return;
+            }
+
             Application.Run(new LMain());
         }
     }

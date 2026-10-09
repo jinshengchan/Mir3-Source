@@ -16,6 +16,12 @@ namespace LibraryEditor
         public static BlackDragonLibrary _library;
         private BlackDragonLibrary.MImage _selectedImage, _exportImage;
         private Image _originalImage;
+        private bool _loadingResourceTree;
+        private string _resourceRootPath = string.Empty;
+        private static readonly string[] ResourceFileExtensions =
+        {
+            ".zl", ".lib", ".wil", ".wtl", ".wzl", ".miz", ".dat", ".idx"
+        };
         public static LMain form1; //其他类调用窗体控件
         public delegate void DelegateProgressBar(int value, int maxvalue);
 
@@ -25,6 +31,9 @@ namespace LibraryEditor
         public LMain()
         {
             InitializeComponent();
+            this.Load += new EventHandler(LMain_Load);
+            this.Shown += new EventHandler(LMain_Load);
+            splitContainer2.SizeChanged += new EventHandler(LMain_Load);
             form1 = this; //其他类调用窗体控件
             SendMessage(PreviewListView.Handle, 4149, 0, 5242946); //80 x 66
             PreviewListView.Size = splitContainer1.Panel2.Size;
@@ -32,16 +41,261 @@ namespace LibraryEditor
             this.AllowDrop = true;
             this.DragEnter += new DragEventHandler(Form1_DragEnter);
             this.DragDrop += new DragEventHandler(Form1_DragDrop);
+            InitializeResourceTree();
             if (Program.openFileWith.Length > 0 &&
                 File.Exists(Program.openFileWith))
             {
-                OpenLibraryDialog.FileName = Program.openFileWith;
-                _library = new BlackDragonLibrary(OpenLibraryDialog.FileName);
+                OpenLibraryFile(Program.openFileWith);
+            }
+        }
+
+        private void InitializeResourceTree()
+        {
+            string initialPath = File.Exists(Program.openFileWith) ? Program.openFileWith : null;
+            LoadResourceTree(initialPath, false);
+        }
+
+        private void selectResourceFolderButton_Click(object sender, EventArgs e)
+        {
+            SelectResourceFolder();
+        }
+
+        private void resourcePathLabel_Click(object sender, EventArgs e)
+        {
+            SelectResourceFolder();
+        }
+
+        private void itemSettingsButton_Click(object sender, EventArgs e)
+        {
+            using (ItemSettingsForm form = new ItemSettingsForm())
+                form.ShowDialog(this);
+        }
+
+        private void appearanceSettingsButton_Click(object sender, EventArgs e)
+        {
+            using (AppearanceQueryForm form = new AppearanceQueryForm(_resourceRootPath))
+                form.ShowDialog(this);
+        }
+
+        private void mapCoordinatesButton_Click(object sender, EventArgs e)
+        {
+            using (MapCoordinateForm form = new MapCoordinateForm(_resourceRootPath))
+                form.ShowDialog(this);
+        }
+
+        private void SelectResourceFolder()
+        {
+            using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+            {
+                if (Directory.Exists(_resourceRootPath))
+                    dialog.SelectedPath = _resourceRootPath;
+
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                LoadResourceTree(dialog.SelectedPath);
+            }
+        }
+
+        private void LoadResourceTree(string path)
+        {
+            LoadResourceTree(path, true);
+        }
+
+        private void LoadResourceTree(string path, bool openFirstLibrary)
+        {
+            string rootPath = path;
+            if (File.Exists(rootPath))
+                rootPath = Path.GetDirectoryName(rootPath);
+
+            if (string.IsNullOrEmpty(rootPath) || !Directory.Exists(rootPath))
+            {
+                string dataPath = Path.Combine(Application.StartupPath, "Data");
+                rootPath = Directory.Exists(dataPath) ? dataPath : Application.StartupPath;
+            }
+
+            _resourceRootPath = Path.GetFullPath(rootPath);
+            string fileToOpen = File.Exists(path) ? Path.GetFullPath(path) : null;
+            _loadingResourceTree = true;
+            try
+            {
+                resourceTreeView.BeginUpdate();
+                resourceTreeView.Nodes.Clear();
+
+                TreeNode rootNode = new TreeNode(Path.GetFileName(_resourceRootPath));
+                if (string.IsNullOrEmpty(rootNode.Text))
+                    rootNode.Text = "Data";
+                rootNode.Tag = _resourceRootPath;
+                resourceTreeView.Nodes.Add(rootNode);
+                AddResourceTreeNodes(rootNode, _resourceRootPath, 0);
+                rootNode.ExpandAll();
+            }
+            finally
+            {
+                resourceTreeView.EndUpdate();
+                _loadingResourceTree = false;
+            }
+
+            resourcePathLabel.Text = "客户端资源：" + _resourceRootPath;
+            if (fileToOpen == null && openFirstLibrary)
+                fileToOpen = FindFirstZl(resourceTreeView.Nodes);
+
+            if (!string.IsNullOrEmpty(fileToOpen))
+            {
+                SelectResourceTreeNode(fileToOpen);
+                if (openFirstLibrary)
+                    OpenLibraryFile(fileToOpen);
+            }
+        }
+
+        private string FindFirstZl(TreeNodeCollection nodes)
+        {
+            foreach (TreeNode node in nodes)
+            {
+                string fileName = node.Tag as string;
+                if (!string.IsNullOrEmpty(fileName) &&
+                    File.Exists(fileName) &&
+                    string.Equals(Path.GetExtension(fileName), ".zl", StringComparison.OrdinalIgnoreCase))
+                    return fileName;
+
+                string match = FindFirstZl(node.Nodes);
+                if (!string.IsNullOrEmpty(match))
+                    return match;
+            }
+
+            return null;
+        }
+
+        private void AddResourceTreeNodes(TreeNode parentNode, string directory, int depth)
+        {
+            string[] directories;
+            string[] files;
+            try
+            {
+                directories = Directory.GetDirectories(directory);
+                files = Directory.GetFiles(directory);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return;
+            }
+
+            Array.Sort(directories, StringComparer.OrdinalIgnoreCase);
+            Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+
+            foreach (string childDirectory in directories)
+            {
+                if (depth >= 2)
+                    continue;
+
+                TreeNode directoryNode = new TreeNode(Path.GetFileName(childDirectory));
+                directoryNode.Tag = childDirectory;
+                parentNode.Nodes.Add(directoryNode);
+                AddResourceTreeNodes(directoryNode, childDirectory, depth + 1);
+            }
+
+            foreach (string file in files)
+            {
+                if (!IsSupportedResourceFile(file))
+                    continue;
+
+                TreeNode fileNode = new TreeNode(Path.GetFileName(file));
+                fileNode.Tag = file;
+                parentNode.Nodes.Add(fileNode);
+            }
+        }
+
+        private static bool IsSupportedResourceFile(string fileName)
+        {
+            string extension = Path.GetExtension(fileName);
+            for (int i = 0; i < ResourceFileExtensions.Length; i++)
+            {
+                if (string.Equals(extension, ResourceFileExtensions[i], StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void SelectResourceTreeNode(string fileName)
+        {
+            TreeNode node = FindResourceTreeNode(resourceTreeView.Nodes, fileName);
+            if (node == null)
+                return;
+
+            _loadingResourceTree = true;
+            try
+            {
+                resourceTreeView.SelectedNode = node;
+                node.EnsureVisible();
+            }
+            finally
+            {
+                _loadingResourceTree = false;
+            }
+        }
+
+        private TreeNode FindResourceTreeNode(TreeNodeCollection nodes, string fileName)
+        {
+            foreach (TreeNode node in nodes)
+            {
+                if (string.Equals(node.Tag as string, fileName, StringComparison.OrdinalIgnoreCase))
+                    return node;
+
+                TreeNode match = FindResourceTreeNode(node.Nodes, fileName);
+                if (match != null)
+                    return match;
+            }
+
+            return null;
+        }
+
+        private void resourceTreeView_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            if (_loadingResourceTree)
+                return;
+
+            string fileName = e.Node.Tag as string;
+            if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
+                return;
+
+            if (!string.Equals(Path.GetExtension(fileName), ".zl", StringComparison.OrdinalIgnoreCase))
+            {
+                toolStripStatusLabel2.Text = "文件：" + Path.GetFileName(fileName);
+                return;
+            }
+
+            if (_library == null || !string.Equals(_library.FileName, fileName, StringComparison.OrdinalIgnoreCase))
+                OpenLibraryFile(fileName);
+        }
+
+        private void OpenLibraryFile(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
+                return;
+
+            try
+            {
+                OpenLibraryDialog.FileName = fileName;
+                ClearInterface();
+                ImageList.Images.Clear();
+                PreviewListView.Items.Clear();
+                PreviewListView.VirtualListSize = 0;
+                _indexList.Clear();
+
+                if (_library != null)
+                {
+                    _library.Close();
+                    _library.Dispose();
+                }
+                _library = new BlackDragonLibrary(fileName);
                 PreviewListView.VirtualListSize = _library.Images.Count;
 
-                // Show .Lib path in application title.
-                this.Text = OpenLibraryDialog.FileName.ToString();
-
+                this.Text = "Z3专用客户端素材编辑器";
                 PreviewListView.SelectedIndices.Clear();
 
                 if (PreviewListView.Items.Count > 0)
@@ -50,6 +304,15 @@ namespace LibraryEditor
                 radioButtonImage.Enabled = true;
                 radioButtonShadow.Enabled = true;
                 radioButtonOverlay.Enabled = true;
+
+                if (!IsPathWithinRoot(fileName, _resourceRootPath))
+                    LoadResourceTree(Path.GetDirectoryName(fileName), false);
+
+                SelectResourceTreeNode(fileName);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "打开素材失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         //
@@ -132,14 +395,131 @@ namespace LibraryEditor
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy;
         }
+
+        private void LMain_Load(object sender, EventArgs e)
+        {
+            UpdatePanelLayout();
+        }
+
+        private void UpdatePanelLayout()
+        {
+            if (splitContainer3.Width > 0)
+            {
+                int treeDistance = Math.Min(180, splitContainer3.Width - splitContainer3.SplitterWidth);
+                if (treeDistance < splitContainer3.Panel1MinSize)
+                    treeDistance = splitContainer3.Panel1MinSize;
+                splitContainer3.SplitterDistance = treeDistance;
+            }
+
+            if (splitContainer2.Width > 0)
+            {
+                int propertyWidth = 200;
+                int splitterDistance = splitContainer2.Width - propertyWidth - splitContainer2.SplitterWidth;
+                if (splitterDistance < splitContainer2.Panel1MinSize)
+                    splitterDistance = splitContainer2.Panel1MinSize;
+                splitContainer2.SplitterDistance = splitterDistance;
+            }
+
+            if (!Visible) return;
+
+            int panelWidth = splitContainer2.Panel2.ClientSize.Width;
+            int fieldLeft = Math.Min(panelWidth / 2 + 2, panelWidth - OffSetXTextBox.Width - 4);
+            int labelGap = 8;
+            int metricWidth = label1.Width + 4 + WidthLabel.Width + 8 + label6.Width + 4 + HeightLabel.Width;
+            int metricLeft = Math.Max(4, (panelWidth - metricWidth) / 2);
+            label1.Left = metricLeft;
+            WidthLabel.Left = label1.Right + 4;
+            label6.Left = WidthLabel.Right + 8;
+            HeightLabel.Left = label6.Right + 4;
+            label8.Left = fieldLeft - label8.Width - labelGap;
+            OffSetXTextBox.Left = fieldLeft;
+            label10.Left = fieldLeft - label10.Width - labelGap;
+            OffSetYTextBox.Left = fieldLeft;
+            label3.Left = fieldLeft - label3.Width - labelGap;
+            ShadowOffSetXTextBox.Left = fieldLeft;
+            label2.Left = fieldLeft - label2.Width - labelGap;
+            ShadowOffSetYTextBox.Left = fieldLeft;
+            label4.Left = fieldLeft - label4.Width - labelGap;
+            ShadowTextBox.Left = fieldLeft;
+
+            int buttonWidth = (panelWidth - 14) / 2;
+            int operationTop = ShadowTextBox.Bottom + 4;
+            int operationHeight = 25;
+            int operationGap = 2;
+            Button[] operationButtons =
+            {
+                mapCoordinatesButton, taskSettingsButton,
+                searchSettingsButton, monsterSettingsButton,
+                appearanceSettingsButton, itemSettingsButton,
+                ImportButton, DeleteButton,
+                insertBlankButton, mergeImageButton,
+                mergeFileButton, ExportButton,
+                tailBlankButton, tailAddButton
+            };
+
+            for (int i = 0; i < operationButtons.Length; i++)
+            {
+                Button button = operationButtons[i];
+                int row = i / 2;
+                int column = i % 2;
+                button.Left = 4 + column * (buttonWidth + 6);
+                button.Top = operationTop + row * (operationHeight + operationGap);
+                button.Width = buttonWidth;
+                button.Height = operationHeight;
+            }
+
+            int navigationTop = operationTop + 7 * (operationHeight + operationGap) + 4;
+            int navigationGap = 4;
+            int navigationWidth = buttonSkipPrevious.Width + navigationGap + nudJump.Width + navigationGap + buttonSkipNext.Width;
+            int navigationLeft = Math.Max(4, (panelWidth - navigationWidth) / 2);
+            buttonSkipPrevious.Left = navigationLeft;
+            nudJump.Left = buttonSkipPrevious.Right + navigationGap;
+            buttonSkipNext.Left = nudJump.Right + navigationGap;
+            buttonSkipPrevious.Top = navigationTop;
+            buttonSkipNext.Top = navigationTop;
+            nudJump.Top = navigationTop + 2;
+
+            int zoomTop = navigationTop + Math.Max(buttonSkipPrevious.Height, nudJump.Height) + 3;
+            ZoomTrackBar.Width = Math.Min(140, panelWidth - 8);
+            ZoomTrackBar.Left = (panelWidth - ZoomTrackBar.Width) / 2;
+            ZoomTrackBar.Top = zoomTop;
+
+            int optionsTop = zoomTop + ZoomTrackBar.Height + 1;
+            checkBoxQuality.Top = optionsTop;
+            checkBoxQuality.Left = 4;
+            checkBoxPreventAntiAliasing.Top = optionsTop;
+            checkBoxPreventAntiAliasing.Left = checkBoxQuality.Right + 4;
+            int skipTop = optionsTop + Math.Max(checkBoxQuality.Height, checkBoxPreventAntiAliasing.Height) + 2;
+            skipBlankCheckBox.Left = 4;
+            skipBlankCheckBox.Top = skipTop;
+            speedNumericUpDown.Width = 60;
+            speedNumericUpDown.Left = panelWidth - speedNumericUpDown.Width - 4;
+            speedNumericUpDown.Top = skipTop;
+            speedLabel.Top = skipTop + 4;
+            speedLabel.Left = speedNumericUpDown.Left - speedLabel.Width - 4;
+        }
+
+        private static bool IsPathWithinRoot(string fileName, string rootPath)
+        {
+            if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(rootPath))
+                return false;
+
+            string fullFileName = Path.GetFullPath(fileName);
+            string fullRootPath = Path.GetFullPath(rootPath).TrimEnd(
+                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            return fullFileName.StartsWith(fullRootPath, StringComparison.OrdinalIgnoreCase);
+        }
+
         // Don't let the splitter go out of sight on resizing.
         private void LMain_Resize(object sender, EventArgs e)
         {
-            if (splitContainer1.SplitterDistance <= this.Height - 150) return;
-            if (this.Height - 150 > 0)
+            int maximumDistance = splitContainer1.ClientSize.Height - splitContainer1.Panel2MinSize - splitContainer1.SplitterWidth;
+            if (maximumDistance >= splitContainer1.Panel1MinSize && splitContainer1.SplitterDistance > maximumDistance)
             {
-                splitContainer1.SplitterDistance = this.Height - 150;
+                splitContainer1.SplitterDistance = maximumDistance;
             }
+
+            UpdatePanelLayout();
         }
         //图像按钮事件
         private void radioButtonImage_CheckedChanged(object sender, EventArgs e)
@@ -251,34 +631,7 @@ namespace LibraryEditor
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (OpenLibraryDialog.ShowDialog() != DialogResult.OK) return;
-            //MessageBox.Show(OpenLibraryDialog.FileName);
-            ClearInterface();
-            ImageList.Images.Clear();
-            PreviewListView.Items.Clear();
-            PreviewListView.VirtualListSize = 0;
-            _indexList.Clear();
-
-            if (_library != null)
-            {
-                _library.Close();
-                //增加内存回收
-                _library.Dispose();
-            }
-            _library = new BlackDragonLibrary(OpenLibraryDialog.FileName);
-
-            PreviewListView.VirtualListSize = _library.Images.Count;
-
-            // Show .Lib path in application title.
-            this.Text = OpenLibraryDialog.FileName.ToString();
-
-            PreviewListView.SelectedIndices.Clear();
-
-            if (PreviewListView.Items.Count > 0)
-                PreviewListView.Items[0].Selected = true;
-
-            radioButtonImage.Enabled = true;
-            radioButtonShadow.Enabled = true;
-            radioButtonOverlay.Enabled = true;
+            OpenLibraryFile(OpenLibraryDialog.FileName);
         }
         //保存
         private void saveToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1413,7 +1766,8 @@ namespace LibraryEditor
                     this.PreviewListView.Items[index].Selected = true;
                     PreviewListView.Items[index].EnsureVisible();
 
-                    if (_selectedImage == null || _selectedImage.Height == 1 && _selectedImage.Width == 1 && PreviewListView.SelectedIndices[0] != 0)
+                    if (skipBlankCheckBox.Checked &&
+                        (_selectedImage == null || _selectedImage.Height == 1 && _selectedImage.Width == 1 && PreviewListView.SelectedIndices[0] != 0))
                     {
                         previousImageToolStripMenuItem_Click(null, null);
                     }
@@ -1438,7 +1792,8 @@ namespace LibraryEditor
                     this.PreviewListView.Items[index].Selected = true;
                     PreviewListView.Items[index].EnsureVisible();
 
-                    if (_selectedImage == null || _selectedImage.Height == 1 && _selectedImage.Width == 1 && PreviewListView.SelectedIndices[0] != 0)
+                    if (skipBlankCheckBox.Checked &&
+                        (_selectedImage == null || _selectedImage.Height == 1 && _selectedImage.Width == 1 && PreviewListView.SelectedIndices[0] != 0))
                     {
                         nextImageToolStripMenuItem_Click(null, null);
                     }

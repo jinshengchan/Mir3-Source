@@ -121,6 +121,34 @@
     <Compile Include="Graphics\WTL1to1ZL.cs" />
     <Compile Include="Graphics\ZirconLibrary.cs" />
     <Compile Include="WtlConversionBatch.cs" />
+    <Compile Include="PreviewCanvas.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ItemSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ItemSettingsForm.Designer.cs">
+      <DependentUpon>ItemSettingsForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="ItemSettingsForm.resx">
+      <DependentUpon>ItemSettingsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <Compile Include="AppearanceQueryForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AppearanceQueryForm.Designer.cs">
+      <DependentUpon>AppearanceQueryForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MergePreviewForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MergePreviewForm.Designer.cs">
+      <DependentUpon>MergePreviewForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MapCoordinateCore.cs" />
+    <Compile Include="MapCoordinateTileRenderer.cs" />
+    <Compile Include="MapCoordinateCanvas.cs" />
+    <Compile Include="MapCoordinateForm.cs" />
     <Compile Include="LMain.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -180,9 +208,29 @@
     <ProjectReference Include="CustomFormControl\CustomFormControl.csproj">
       <Project>{22d64468-4312-4558-b25d-99bff85caa96}</Project>
       <Name>CustomFormControl</Name>
+      <AdditionalProperties>Platform=AnyCPU</AdditionalProperties>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
+  <PropertyGroup>
+    <ServerLibraryPublishPath>$(IntermediateOutputPath)ServerLibraryRuntime</ServerLibraryPublishPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Library">
+      <HintPath>$(ServerLibraryPublishPath)\Library.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Target Name="PublishServerLibraryRuntimeDependencies" BeforeTargets="ResolveAssemblyReferences" Condition="'$(DesignTimeBuild)' != 'true'">
+    <RemoveDir Directories="$(ServerLibraryPublishPath)" />
+    <MakeDir Directories="$(ServerLibraryPublishPath)" />
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\ServerLibrary\ServerLibrary.csproj&quot; -c $(Configuration) --no-restore -o &quot;$(ServerLibraryPublishPath)&quot; --nologo" />
+  </Target>
+  <Target Name="CopyServerLibraryRuntimeDependencies" AfterTargets="Build" DependsOnTargets="PublishServerLibraryRuntimeDependencies">
+    <ItemGroup>
+      <ServerLibraryRuntimeFiles Include="$(ServerLibraryPublishPath)\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ServerLibraryRuntimeFiles)" DestinationFiles="@(ServerLibraryRuntimeFiles->'$(OutputPath)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
   <ProjectExtensions>
     <VisualStudio AllowExistingFolder="true" />
   </ProjectExtensions>

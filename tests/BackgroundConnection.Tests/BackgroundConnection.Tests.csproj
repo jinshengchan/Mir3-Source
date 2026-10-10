@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DefineConstants>$(DefineConstants);ANDROID</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Library/Network/BaseConnection.cs" Link="BaseConnection.cs" />
+    <Compile Include="../../Library/Network/Packet.cs" Link="Packet.cs" />
+    <Compile Include="../../Library/Network/GeneralPackets.cs" Link="GeneralPackets.cs" />
+    <Compile Include="../../Library/Time.cs" Link="Time.cs" />
+  </ItemGroup>
+</Project>

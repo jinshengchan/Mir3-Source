@@ -37,6 +37,9 @@ namespace Mir3.Droid
         //private static WebView webView;
         private static RelativeLayout.LayoutParams layoutParams;
         private static InputMethodManager imm;
+        private const long BackgroundKeepAliveMilliseconds = 3 * 60 * 1000;
+        private CConnection _backgroundConnection;
+        private PowerManager.WakeLock _backgroundWakeLock;
 
         protected override void OnCreate(Bundle bundle)
         {
@@ -360,8 +363,57 @@ namespace Mir3.Droid
 
         protected override void OnResume()
         {
+            ReleaseBackgroundKeepAlive(resuming: true);
             base.OnResume();
             HideNavBars();
+        }
+
+        protected override void OnPause()
+        {
+            _backgroundConnection = CEnvir.Connection;
+            if (_backgroundConnection?.Connected == true && !_backgroundConnection.Disconnecting)
+            {
+                _backgroundConnection.BeginBackgroundKeepAlive(TimeSpan.FromMilliseconds(BackgroundKeepAliveMilliseconds));
+                // Keep only socket callbacks awake. MonoGame pauses its render loop.
+                // The timeout also releases the CPU lock if this activity never resumes.
+                if (!IsFinishing)
+                {
+                    try
+                    {
+                        var power = (PowerManager)GetSystemService(PowerService);
+                        _backgroundWakeLock = power.NewWakeLock(WakeLockFlags.Partial, "Mir3:BackgroundHeartbeat");
+                        _backgroundWakeLock.Acquire(BackgroundKeepAliveMilliseconds);
+                    }
+                    catch (Exception ex)
+                    {
+                        CEnvir.SaveError("Background heartbeat wake lock: " + ex);
+                    }
+                }
+            }
+            base.OnPause();
+        }
+
+        protected override void OnDestroy()
+        {
+            ReleaseBackgroundKeepAlive(resuming: false);
+            base.OnDestroy();
+        }
+
+        private void ReleaseBackgroundKeepAlive(bool resuming)
+        {
+            if (resuming) _backgroundConnection?.EndBackgroundKeepAlive();
+            else _backgroundConnection?.BeginBackgroundKeepAlive(TimeSpan.Zero);
+            _backgroundConnection = null;
+            if (_backgroundWakeLock == null) return;
+            try
+            {
+                if (_backgroundWakeLock.IsHeld) _backgroundWakeLock.Release();
+            }
+            finally
+            {
+                _backgroundWakeLock.Dispose();
+                _backgroundWakeLock = null;
+            }
         }
 
         private static void HideNavBars()

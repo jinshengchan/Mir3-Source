@@ -30,6 +30,9 @@ namespace Client.Envir
     /// </summary>
     public sealed class CConnection : BaseConnection
     {
+#if ANDROID
+        protected override bool TransportHeartbeatEnabled => true;
+#endif
         protected override TimeSpan TimeOutDelay => Config.TimeOutDuration;
         private DateTime DurWarnDelay;
         public bool ServerConnected { get; set; }

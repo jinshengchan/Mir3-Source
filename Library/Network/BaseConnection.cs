@@ -49,6 +49,30 @@ namespace Library.Network
         /// 客户端TCP协议
         /// </summary>
         protected TcpClient Client;
+#if ANDROID
+        private readonly object _sendLock = new object();
+        private long _backgroundUntilTicks = long.MaxValue;
+        protected virtual bool TransportHeartbeatEnabled => false;
+
+        // Only the Android game connection opts in. World/UI packets remain queued
+        // for Process on the game thread; the existing Ping wire format is unchanged.
+        public void BeginBackgroundKeepAlive(TimeSpan duration)
+        {
+            if (duration < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
+            System.Threading.Interlocked.Exchange(ref _backgroundUntilTicks, (Time.Now + duration).Ticks);
+        }
+
+        public void EndBackgroundKeepAlive()
+        {
+            System.Threading.Interlocked.Exchange(ref _backgroundUntilTicks, long.MaxValue);
+        }
+
+        private sealed class PendingSend
+        {
+            public byte[] Bytes;
+            public int Offset;
+        }
+#endif
         /// <summary>
         /// 连接时间
         /// </summary>
@@ -160,6 +184,9 @@ namespace Library.Network
         {
             try
             {
+#if ANDROID
+                if (Disconnecting) return;
+#endif
                 if (Client == null || !Client.Connected) return;
 
                 byte[] rawBytes = new byte[8 * 1024];
@@ -226,6 +253,29 @@ namespace Library.Network
 #if ANDROID && BUNDLED_RESOURCE_TEST
                 Trace($"receive {p.GetType().FullName} id={Packet.Packets.IndexOf(p.GetType())} length={p.Length}");
 #endif
+#if ANDROID
+                if (TransportHeartbeatEnabled)
+                {
+                    long deadline = System.Threading.Interlocked.Read(ref _backgroundUntilTicks);
+                    // Bound both background time and queued world state. Do not drop
+                    // selected packets and then continue a desynchronised session.
+                    if (Time.Now.Ticks >= deadline ||
+                        (deadline != long.MaxValue && GetReceiveListQueueLength() >= 4096))
+                    {
+#if BUNDLED_RESOURCE_TEST
+                        Trace("background keepalive ended: time or receive queue limit");
+#endif
+                        Disconnecting = true;
+                        return;
+                    }
+                    if (p is G.Ping && !Disconnecting)
+                    {
+                        Enqueue(new G.Ping());
+                        FlushSendQueue();
+                        continue;
+                    }
+                }
+#endif
                 ReceiveList.Enqueue(p);
             }
         }
@@ -244,7 +294,12 @@ namespace Library.Network
             {
                 Sending = true;
                 TotalBytesSent += data.Count;
+#if ANDROID
+                var pending = new PendingSend { Bytes = data.ToArray() };
+                Client.Client.BeginSend(pending.Bytes, 0, pending.Bytes.Length, SocketFlags.None, SendData, pending);
+#else
                 Client.Client.BeginSend(data.ToArray(), 0, data.Count, SocketFlags.None, SendData, null);
+#endif
 #if ANDROID && BUNDLED_RESOURCE_TEST
                 Trace($"socket send scheduled bytes={data.Count}");
 #endif
@@ -264,6 +319,39 @@ namespace Library.Network
         /// <param name="result"></param>
         private void SendData(IAsyncResult result)
         {
+#if ANDROID
+            lock (_sendLock)
+            {
+                if (!Connected) return;
+                try
+                {
+                    var pending = (PendingSend)result.AsyncState;
+                    int completedBytes = Client.Client.EndSend(result);
+                    if (completedBytes == 0) throw new SocketException((int)SocketError.ConnectionReset);
+                    pending.Offset += completedBytes;
+#if BUNDLED_RESOURCE_TEST
+                    Trace($"socket send completed bytes={completedBytes}");
+#endif
+                    UpdateTimeOut();
+                    if (pending.Offset < pending.Bytes.Length)
+                    {
+                        Client.Client.BeginSend(pending.Bytes, pending.Offset, pending.Bytes.Length - pending.Offset,
+                            SocketFlags.None, SendData, pending);
+                        return;
+                    }
+                    Sending = false;
+                    // A Ping can arrive while a foreground send is still in flight.
+                    // Flush its queued reply even when the frame loop is paused.
+                    FlushSendQueueCore();
+                }
+                catch (Exception ex)
+                {
+                    if (AdditionalLogging) OnException?.Invoke(this, ex);
+                    Disconnecting = true;
+                    Sending = false;
+                }
+            }
+#else
             try
             {
                 Sending = false;
@@ -279,6 +367,7 @@ namespace Library.Network
                     OnException(this, ex);
                 Disconnecting = true;
             }
+#endif
         }
         /// <summary>
         /// 队列
@@ -305,6 +394,10 @@ namespace Library.Network
         /// </summary>
         public virtual void Disconnect()
         {
+#if ANDROID
+            lock (_sendLock)
+            {
+#endif
             if (!Connected) return;
 
             Connected = false;
@@ -319,6 +412,9 @@ namespace Library.Network
                 Client.Client.Dispose();
                 Client = null;
             }
+#if ANDROID
+            }
+#endif
         }
         /// <summary>
         /// 尝试发送断开连接
@@ -440,6 +536,23 @@ namespace Library.Network
             if (!Disconnecting && Sending)
                 UpdateTimeOut();
 
+            FlushSendQueue();
+        }
+
+        private void FlushSendQueue()
+        {
+#if ANDROID
+            lock (_sendLock) { FlushSendQueueCore(); }
+#else
+            FlushSendQueueCore();
+#endif
+        }
+
+        private void FlushSendQueueCore()
+        {
+#if ANDROID
+            if (!Connected || Disconnecting) return;
+#endif
             if (SendList == null || SendList.IsEmpty || Sending) return;
 
             List<byte> data = new List<byte>();
@@ -470,6 +583,10 @@ namespace Library.Network
 
                 if (!Monitor) continue;
 
+#if ANDROID
+                lock (Diagnostics)
+                {
+#endif
                 DiagnosticValue value;
                 Type type = p.GetType();
 
@@ -481,6 +598,9 @@ namespace Library.Network
 
                 if (p.Length > value.LargestSize)
                     value.LargestSize = p.Length;
+#if ANDROID
+                }
+#endif
             }
 
             BeginSend(data);
@@ -517,6 +637,11 @@ namespace Library.Network
             if (!Monitor) return;
 
             TimeSpan execution = Time.Now - start;
+
+#if ANDROID
+            lock (Diagnostics)
+            {
+#endif
             DiagnosticValue value;
 
             if (!Diagnostics.TryGetValue(p.PacketType.FullName, out value))
@@ -531,6 +656,9 @@ namespace Library.Network
 
             if (p.Length > value.LargestSize)
                 value.LargestSize = p.Length;
+#if ANDROID
+            }
+#endif
         }
         /// <summary>
         /// 更新超时

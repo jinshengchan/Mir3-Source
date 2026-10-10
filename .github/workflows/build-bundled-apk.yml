@@ -44,6 +44,8 @@ jobs:
         run: dotnet run --project tests/BundledResources.Tests/BundledResources.Tests.csproj
       - name: Test zero-frame title and effect animation
         run: dotnet run --project tests/MirEffects.Tests/MirEffects.Tests.csproj
+      - name: Test Android background heartbeat transport
+        run: dotnet run --project tests/BackgroundConnection.Tests/BackgroundConnection.Tests.csproj
       - name: Get replacement resources and APK startup assets
         run: |
           python3 -m pip install 'gdown==5.2.0' 'dnfile==0.18.0' 'lz4==4.4.5'

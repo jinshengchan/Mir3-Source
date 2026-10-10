@@ -868,7 +868,9 @@ namespace Client.Scenes.Views
             {
                 if (!File.Exists(CEnvir.MobileClientPath + Config.MapPath + MapInfo.FileName + ".map")) return;
 
-                DXManager.ForceReworkTextures();
+                // Reuse recently loaded sprites across maps and random teleports.
+                // The map layers are invalidated by OnMapInfoChanged/LocationChanged;
+                // normal cache expiry still releases unused library textures.
                 Cells = new MapCells(CEnvir.MobileClientPath + Config.MapPath + MapInfo.FileName + ".map");
                 Width = Cells.Width;
                 Height = Cells.Height;
@@ -876,8 +878,6 @@ namespace Client.Scenes.Views
                 FLayer.IsBoat = MapInfo.FileName.ToLower() == "juma_s01";
                 //创建钓鱼区域
                 CreateFishingArea();
-                //手动垃圾回收
-                GC.Collect(2, GCCollectionMode.Forced);
             }
             catch (Exception ex)
             {

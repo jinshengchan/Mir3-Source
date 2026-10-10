@@ -448,7 +448,7 @@ namespace Client.Scenes.Views
                 _cacheDiagnosticCount++;
                 _nextCacheDiagnostic = CEnvir.Now.AddSeconds(2);
                 double renderMs = (System.Diagnostics.Stopwatch.GetTimestamp() - renderStarted) * 1000d / System.Diagnostics.Stopwatch.Frequency;
-                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame} renderMs={renderMs:F2} renderTargets={_mapTargetAllocations} preloadPending={_mapPreloads.Count} localDecodePending={MirImage.LocalMapPreparationCount} microActive={Client.Helpers.LibraryHelper.ActiveImageRequests} microCompleted={Client.Helpers.LibraryHelper.CompletedImageRequests} microTotalMs={Client.Helpers.LibraryHelper.ImageRequestMilliseconds}");
+                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame} renderMs={renderMs:F2} renderTargets={_mapTargetAllocations} preloadPending={_mapPreloads.Count} localDecodePending={MirImage.LocalMapPreparationCount} microActive={Client.Helpers.LibraryHelper.ActiveImageRequests} microCompleted={Client.Helpers.LibraryHelper.CompletedImageRequests} microTotalMs={Client.Helpers.LibraryHelper.ImageRequestMilliseconds} mapBoundsChecks={MirLibrary.MapImageBoundsChecks} mapOutsideView={MirLibrary.MapImagesOutsideView}");
             }
 #endif
         }
@@ -521,8 +521,8 @@ namespace Client.Scenes.Views
         private void PrepareNearbyMapTextures()
         {
             // Visible requests have already had first use of the HTTP slots.
-            // Do not add speculative work while the floor or frame is behind.
-            if (_floorCacheRefreshPending || CEnvir.FrameTime > 33 || Cells == null || User == null) return;
+            // Do not compete with missing visible buildings or actor frames.
+            if (_mapCacheRefreshPending || CEnvir.FrameTime > 33 || Cells == null || User == null) return;
             Point location = User.CurrentLocation;
             if (_preloadCells != Cells || _preloadSize != Size ||
                 Math.Abs(location.X - _preloadLocation.X) >= 2 || Math.Abs(location.Y - _preloadLocation.Y) >= 2)

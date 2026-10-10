@@ -56,6 +56,25 @@ namespace Client.Envir
         private DateTime NextSyncTime;
         private static bool _mapCacheRefreshActive;
         private static bool _mapCacheDrawIncomplete;
+        private readonly bool _mapResource;
+        internal static long MapImageBoundsChecks { get; private set; }
+        internal static long MapImagesOutsideView { get; private set; }
+
+        private bool SkipInvisibleMapImage(MirImage image, float x, float y, bool useOffset,
+            ImageType type, float zoom, int uiOffsetX)
+        {
+            // Scope to ordinary map sprites. UI, actors, shadow transforms and
+            // cropped source rectangles retain their original drawing paths.
+            if (!_mapCacheRefreshActive || !_mapResource || type != ImageType.Image ||
+                DXManager.Sprite.Transform != Matrix.Identity) return false;
+            var viewport = DXManager.Device.GetGraphicsDevice().Viewport;
+            MapImageBoundsChecks++;
+            if (MapImageVisibility.Intersects(x, y, image.Width, image.Height,
+                useOffset ? image.OffSetX : 0, useOffset ? image.OffSetY : 0,
+                zoom, uiOffsetX, viewport.Width, viewport.Height)) return false;
+            MapImagesOutsideView++;
+            return true;
+        }
 
         /// <summary>
         /// 库文件
@@ -64,6 +83,7 @@ namespace Client.Envir
         public MirLibrary(string fileName)
         {
             FileName = fileName;
+            _mapResource = fileName.Replace('\\', '/').IndexOf("/Map Data/", StringComparison.OrdinalIgnoreCase) >= 0;
             FullPathName = CEnvir.MobileClientPath + fileName;
             if (File.Exists(FullPathName))
             {
@@ -542,6 +562,7 @@ namespace Client.Envir
             if (!CheckImage(index)) return;
 
             MirImage image = Images[index];
+            if (SkipInvisibleMapImage(image, x, y, useOffSet, type, zoomRate, uiOffsetX)) return;
 
             Texture texture;
 
@@ -683,6 +704,7 @@ namespace Client.Envir
             if (!CheckImage(index)) return;
 
             MirImage image = Images[index];
+            if (SkipInvisibleMapImage(image, x, y, useOffSet, type, zoomRate, uiOffsetX)) return;
 
             Texture texture;
 

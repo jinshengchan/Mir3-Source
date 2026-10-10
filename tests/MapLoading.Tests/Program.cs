@@ -22,6 +22,37 @@ byte[] Deflate(byte[] bytes)
 }
 MapImagePixels.Plane Plane(byte[] bytes, byte type) => new(bytes.Length, 4, 4, type);
 var empty = new MapImagePixels.Plane(0, 0, 0, 0);
+bool Visible(float x, float y, int w = 96, int h = 64, int ox = 0, int oy = 0,
+    float zoom = 1, int ui = 0) => MapImageVisibility.Intersects(x, y, w, h, ox, oy, zoom, ui, 1280, 720);
+Check(Visible(600, 300), "Visible floor tile retains its loading path");
+Check(!Visible(100, 1000), "Offscreen lower rows do not start loading");
+Check(!Visible(-200, 100) && !Visible(1400, 100) && !Visible(100, -200), "Cull completely offscreen sprites on every edge");
+Check(Visible(100, -63) && Visible(-95, 100) && Visible(1279, 719), "Keep partial sprites across screen edges");
+Check(Visible(100, 800 - 512, 96, 512), "Tall building anchored below screen still renders");
+Check(!Visible(100, 1200 - 128, 96, 128), "Small building entirely below screen stays deferred");
+Check(Visible(1400, 100, ox: -200) && !Visible(1200, 100, ox: 200), "Apply signed sprite offsets before clipping");
+Check(Visible(100, 800, oy: -200) && !Visible(100, 600, oy: 200), "Vertical offsets preserve overhanging map decorations");
+Check(Visible(2000, 100, zoom: .5f) && !Visible(1000, 100, zoom: 2), "Use scaled sprite bounds and target dimensions");
+Check(Visible(2300, 100, zoom: .5f, ui: 100) && !Visible(2300, 100, zoom: .5f, ui: 200), "Respect UI offset in scaled draws");
+Check(Visible(1200, 100, ui: 200), "Unit-scale path ignores unused UI offset like Sprite.Draw");
+Check(Visible(-3, 100, 1, 1), "Include texture block padding near edges");
+Check(Visible(-97, 100) && Visible(1281, 100), "Conservative pixel guard avoids filtering-edge gaps");
+Check(Visible(10000, 10000, w: 0) && Visible(10000, 10000, zoom: float.NaN), "Unknown bounds retain original validation path");
+
+// Compare loading candidates from the existing overscan with all rectangles
+// that truly touch the viewport. The +25 lower rows remain available for tall
+// buildings, while completely hidden pictures cannot consume loading slots.
+int candidates = 0, retained = 0;
+for (int y = -128; y <= 720 + 25 * 32; y += 32)
+    for (int x = -192; x <= 1280 + 192; x += 48)
+    {
+        candidates++;
+        bool visible = Visible(x, y);
+        if (visible) retained++;
+        if (x < 1280 && y < 720 && x + 96 > 0 && y + 64 > 0 && !visible)
+            throw new Exception("Culling lost a visible map rectangle.");
+    }
+Check(retained < candidates / 2, "Overscan fixture removes hidden loading candidates without losing screen coverage");
 byte[] greenDxt1 = { 0xE0, 0x07, 0, 0, 0, 0, 0, 0 };
 byte[] greenDxt3 = Enumerable.Repeat((byte)255, 8).Concat(greenDxt1).ToArray();
 byte[] greenDxt5 = new byte[] { 255, 255, 0, 0, 0, 0, 0, 0 }.Concat(greenDxt1).ToArray();

@@ -382,6 +382,7 @@ namespace Mir3.Droid
                     {
                         var power = (PowerManager)GetSystemService(PowerService);
                         _backgroundWakeLock = power.NewWakeLock(WakeLockFlags.Partial, "Mir3:BackgroundHeartbeat");
+                        _backgroundWakeLock.SetReferenceCounted(false);
                         _backgroundWakeLock.Acquire(BackgroundKeepAliveMilliseconds);
                     }
                     catch (Exception ex)

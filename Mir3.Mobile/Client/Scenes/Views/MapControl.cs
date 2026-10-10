@@ -268,6 +268,8 @@ namespace Client.Scenes.Views
         private MapCells _preloadCells;
         private Size _preloadSize;
         private int _mapTargetAllocations;
+        private Point _preparingLocation;
+        private MapCells _preparingCells;
 
         #endregion
 
@@ -351,6 +353,11 @@ namespace Client.Scenes.Views
         protected override void CreateTexture()
         {
             if (DisplayArea.Size.Width <= 0 || DisplayArea.Size.Height <= 0) return;
+            if (_preparingCells != Cells || Math.Abs(User.CurrentLocation.X - _preparingLocation.X) > 3 ||
+                Math.Abs(User.CurrentLocation.Y - _preparingLocation.Y) > 3)
+                MirImage.CancelLocalMapPreparation();
+            _preparingCells = Cells;
+            _preparingLocation = User.CurrentLocation;
 #if ANDROID && BUNDLED_RESOURCE_TEST
             long renderStarted = System.Diagnostics.Stopwatch.GetTimestamp();
 #endif
@@ -436,12 +443,12 @@ namespace Client.Scenes.Views
                 ExpireTime = CEnvir.Now + Config.CacheDuration;
             }
 #if ANDROID && BUNDLED_RESOURCE_TEST
-            if (_cacheDiagnosticCount < 60 && CEnvir.Now >= _nextCacheDiagnostic)
+            if (_cacheDiagnosticCount < 600 && CEnvir.Now >= _nextCacheDiagnostic)
             {
                 _cacheDiagnosticCount++;
                 _nextCacheDiagnostic = CEnvir.Now.AddSeconds(2);
                 double renderMs = (System.Diagnostics.Stopwatch.GetTimestamp() - renderStarted) * 1000d / System.Diagnostics.Stopwatch.Frequency;
-                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame} renderMs={renderMs:F2} renderTargets={_mapTargetAllocations} preloadPending={_mapPreloads.Count}");
+                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame} renderMs={renderMs:F2} renderTargets={_mapTargetAllocations} preloadPending={_mapPreloads.Count} localDecodePending={MirImage.LocalMapPreparationCount} microActive={Client.Helpers.LibraryHelper.ActiveImageRequests} microCompleted={Client.Helpers.LibraryHelper.CompletedImageRequests} microTotalMs={Client.Helpers.LibraryHelper.ImageRequestMilliseconds}");
             }
 #endif
         }

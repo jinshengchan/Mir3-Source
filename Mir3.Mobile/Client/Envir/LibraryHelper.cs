@@ -52,7 +52,12 @@ namespace Client.Helpers
         private static int ExceptionCount;
 
         public static readonly SemaphoreSlim Semaphore;
-        private const int LimitTask = 10;
+        private const int LimitTask = 24;
+        private static int _activeImageRequests;
+        private static long _completedImageRequests, _imageRequestMilliseconds;
+        internal static int ActiveImageRequests => Volatile.Read(ref _activeImageRequests);
+        internal static long CompletedImageRequests => Interlocked.Read(ref _completedImageRequests);
+        internal static long ImageRequestMilliseconds => Interlocked.Read(ref _imageRequestMilliseconds);
         private static readonly object ResourceStateSync = new object();
         private static readonly object ResourceDataSync = new object();
         private static readonly Dictionary<string, long> ResourceGeneration = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
@@ -310,6 +315,8 @@ namespace Client.Helpers
         /// <returns></returns>
         public static async Task<byte[]> GetImageAsync(string fileName, int index, int length, int position)
         {
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            Interlocked.Increment(ref _activeImageRequests);
             var realName = fileName;
             long generation;
             lock (ResourceDataSync) ResourceGeneration.TryGetValue(realName, out generation);
@@ -359,6 +366,14 @@ namespace Client.Helpers
             catch (Exception ex)
             {
                 CEnvir.SaveError($"素材：{api},下载资源异常,异常原因{ex.Message}");
+            }
+
+            finally
+            {
+                Interlocked.Decrement(ref _activeImageRequests);
+                Interlocked.Increment(ref _completedImageRequests);
+                long milliseconds = (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000 / System.Diagnostics.Stopwatch.Frequency;
+                Interlocked.Add(ref _imageRequestMilliseconds, milliseconds);
             }
 
             return null;

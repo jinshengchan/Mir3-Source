@@ -68,4 +68,38 @@ Check(calls.Count == 1, "Do not start another upload after expensive preparation
 queue.Clear(); queue.Add(1);
 Check(queue.Count == 1, "Discard old region when map or destination changes");
 if (args.Length == 1) passed += ActualMapImages.Run(args[0]);
+var preparation = new MapPixelPreparation();
+var ready = preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow);
+await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
+Check(Green(ready.Take().Image) && preparation.Count == 0, "Worker prepares pixels without GPU access and releases memory after upload handoff");
+
+var jobs = new List<MapPixelPreparation.Pending>();
+for (int i = 0; i < 32; i++)
+    jobs.Add(preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow));
+await Task.WhenAll(jobs.Select(job => job.Task)).WaitAsync(TimeSpan.FromSeconds(5));
+Check(preparation.Count == 32 && preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow) == null, "Bound completed and running CPU preparations together");
+preparation.CancelAll();
+Check(preparation.Count == 0 && jobs.All(job => job.Take() == null), "Teleport cancellation discards stale pixels and frees capacity");
+
+var now = DateTime.UtcNow;
+var old = preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, now);
+await old.Task.WaitAsync(TimeSpan.FromSeconds(5));
+var replacement = preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, now.AddSeconds(6));
+await replacement.Task.WaitAsync(TimeSpan.FromSeconds(5));
+Check(old.Cancelled && preparation.Count == 1 && Green(replacement.Take().Image), "Expire unused completed preparations instead of retaining pixels indefinitely");
+
+var oversized = preparation.TryStart(raw, true, new(raw.Length, 4096, 2048, 32), empty, empty, DateTime.UtcNow);
+try { await oversized.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch (InvalidDataException) { }
+Check(preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow) == null, "Bound total decoded pixel memory even for a large pending plane");
+Reject(() => oversized.Take(), "Decode errors propagate to game-thread recovery");
+Check(preparation.Count == 0, "Failed preparation releases its memory budget");
+
+jobs.Clear();
+for (int i = 0; i < 32; i++)
+    jobs.Add(preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow));
+var tasks = jobs.Select(job => job.Task).ToArray();
+preparation.CancelAll();
+await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
+await Task.Delay(20); // Completion callbacks release cancelled workers.
+Check(preparation.Count == 0 && jobs.All(job => job.Cancelled), "Cancel queued CPU work during rapid successive teleports");
 Console.WriteLine($"Passed {passed} map loading checks.");

@@ -144,9 +144,8 @@ namespace Client.Envir
                     if (!File.Exists(FullPathName) && HeadFileStat == 0 && Time.Now > NextSyncTime && LibraryHelper.MicroServerActive)
                     {
                         //限制并发量
-                        if (LibraryHelper.Semaphore.CurrentCount > 0)
+                        if (LibraryHelper.Semaphore.Wait(0))
                         {
-                            LibraryHelper.Semaphore.WaitAsync();
                             HeadFileStat = 1;
                             Task.Run(async () =>
                             {
@@ -857,6 +856,10 @@ namespace Client.Envir
         private readonly object ImageDataLocker = new object();
         private byte[] PendingImageData;
         private MapImagePixels PendingMapPixels;
+        private MapPixelPreparation.Pending _localMapPixels;
+        private static readonly MapPixelPreparation LocalMapPreparation = new MapPixelPreparation();
+        internal static int LocalMapPreparationCount => LocalMapPreparation.Count;
+        internal static void CancelLocalMapPreparation() => LocalMapPreparation.CancelAll();
         /// <summary>
         /// 坐标
         /// </summary>
@@ -1127,6 +1130,8 @@ namespace Client.Envir
         /// </summary>
         public unsafe void DisposeTexture()
         {
+            _localMapPixels?.Dispose();
+            _localMapPixels = null;
             if (Image != null && !Image.Disposed)
                 Image.Dispose();
 
@@ -1169,6 +1174,27 @@ namespace Client.Envir
             if (Width == 1 && Height == 1) return;
             if (Time.Now < NextSyncTime || LibraryHelper.IsResourceRefreshing(fileName)) return;
 
+            if (_localMapPixels != null)
+            {
+                if (!_localMapPixels.Finished) return;
+                var preparation = _localMapPixels;
+                _localMapPixels = null;
+                try
+                {
+                    var pixels = preparation.Take();
+                    if (pixels != null) ApplyMapPixels(pixels);
+                }
+                catch (Exception ex)
+                {
+                    NextSyncTime = Time.Now.AddSeconds(1);
+                    CEnvir.SaveError(fileName + "  " + index + "\r\n" + ex);
+                    if (ex is InvalidDataException || ex is EndOfStreamException)
+                        LibraryHelper.RequestResourceRefresh(fileName, "local map decode failed");
+                }
+                finally { preparation.Dispose(); }
+                return;
+            }
+
             byte[] pendingBuffer;
             MapImagePixels pendingPixels;
             lock (ImageDataLocker)
@@ -1184,13 +1210,7 @@ namespace Client.Envir
                 try
                 {
                     if (pendingPixels != null)
-                    {
-                        ImageSetData(pendingPixels.Image, true);
-                        if (pendingPixels.Shadow != null) ShadowSetData(pendingPixels.Shadow, true);
-                        else ShadowValid = true;
-                        if (pendingPixels.Overlay != null) OverlaySetData(pendingPixels.Overlay, true);
-                        else OverlayValid = true;
-                    }
+                        ApplyMapPixels(pendingPixels);
                     else ApplyImageData(pendingBuffer);
                     lock (ImageDataLocker)
                         ImageFileStat = ImageValid ? (byte)3 : (byte)0;
@@ -1303,6 +1323,25 @@ namespace Client.Envir
 
                 try
                 {
+                    if (fileName.Replace('\\', '/').IndexOf("/Map Data/", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        var imagePlane = new MapImagePixels.Plane(ImageDataSize, Width, Height, ImageTextureType);
+                        var shadowPlane = new MapImagePixels.Plane(ShadowDataSize, ShadowWidth, ShadowHeight, ShadowTextureType);
+                        var overlayPlane = new MapImagePixels.Plane(OverlayDataSize, OverlayWidth, OverlayHeight, OverlayTextureType);
+                        // Oversized single images retain the existing synchronous
+                        // path. Ordinary map pictures use bounded CPU workers.
+                        if (MapPixelPreparation.Estimate(imagePlane) + MapPixelPreparation.Estimate(shadowPlane) + MapPixelPreparation.Estimate(overlayPlane) <= MapPixelPreparation.ByteLimit)
+                        {
+                            byte[] complete = new byte[ImageDataSize + ShadowDataSize + OverlayDataSize];
+                            Buffer.BlockCopy(buffer, 0, complete, 0, buffer.Length);
+                            byte[] rest = reader.ReadBytes(ShadowDataSize + OverlayDataSize);
+                            if (buffer.Length != ImageDataSize || rest.Length != ShadowDataSize + OverlayDataSize)
+                                throw new EndOfStreamException("Truncated local map image.");
+                            Buffer.BlockCopy(rest, 0, complete, ImageDataSize, rest.Length);
+                            _localMapPixels = LocalMapPreparation.TryStart(complete, IsZirconVersion, imagePlane, shadowPlane, overlayPlane, Time.Now);
+                            return;
+                        }
+                    }
                     ApplyImageData(buffer, reader);
                 }
                 catch (Exception ex)
@@ -1316,6 +1355,15 @@ namespace Client.Envir
                 buffer = null;
             }
             //CEnvir.ImageDelayCounter += (Time.Now - now).Ticks;
+        }
+
+        private void ApplyMapPixels(MapImagePixels pixels)
+        {
+            ImageSetData(pixels.Image, true);
+            if (pixels.Shadow != null) ShadowSetData(pixels.Shadow, true);
+            else ShadowValid = true;
+            if (pixels.Overlay != null) OverlaySetData(pixels.Overlay, true);
+            else OverlayValid = true;
         }
 
         private void ApplyImageData(byte[] buffer, BinaryReader reader = null)

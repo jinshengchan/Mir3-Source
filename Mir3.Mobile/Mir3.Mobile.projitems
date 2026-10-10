@@ -60,6 +60,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Client\Envir\DXSoundManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Envir\LibraryHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Envir\MirLibrary.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Envir\MapImagePixels.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Client\Envir\BudgetedPreloadQueue.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Extentions\DXControlEx.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Extentions\DxtUtil.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Client\Extentions\EnumEx.cs" />

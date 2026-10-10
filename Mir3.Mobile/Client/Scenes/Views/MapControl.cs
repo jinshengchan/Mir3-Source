@@ -262,6 +262,12 @@ namespace Client.Scenes.Views
         private int _candidateTextureWidth;
         private int _candidateTextureHeight;
         private bool _mapCacheRefreshPending;
+        private bool _floorCacheRefreshPending;
+        private readonly BudgetedPreloadQueue<(MirLibrary Library, int Index)> _mapPreloads = new BudgetedPreloadQueue<(MirLibrary, int)>();
+        private Point _preloadLocation;
+        private MapCells _preloadCells;
+        private Size _preloadSize;
+        private int _mapTargetAllocations;
 
         #endregion
 
@@ -345,6 +351,9 @@ namespace Client.Scenes.Views
         protected override void CreateTexture()
         {
             if (DisplayArea.Size.Width <= 0 || DisplayArea.Size.Height <= 0) return;
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            long renderStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
 
             int candidateWidth = (int)Math.Round(DisplayArea.Width * ZoomRate);
             int candidateHeight = (int)Math.Round(DisplayArea.Height * ZoomRate);
@@ -361,6 +370,7 @@ namespace Client.Scenes.Views
                 _candidateTextureHeight = candidateHeight;
                 _candidateControlTexture = new Texture(DXManager.Device, candidateWidth, candidateHeight, 1, Usage.RenderTarget, SurfaceFormat.Color, Pool.Default);
                 _candidateControlSurface = _candidateControlTexture.GetSurfaceLevel(0);
+                _mapTargetAllocations++;
             }
 
             if (!DXManager.ControlList.Contains(this))
@@ -396,6 +406,7 @@ namespace Client.Scenes.Views
             {
                 Texture oldControlTexture = ControlTexture;
                 Surface oldControlSurface = ControlSurface;
+                Size oldTextureSize = TextureSize;
                 ControlTexture = _candidateControlTexture;
                 ControlSurface = _candidateControlSurface;
                 TextureSize = DisplayArea.Size;
@@ -405,8 +416,23 @@ namespace Client.Scenes.Views
                 _candidateTextureWidth = 0;
                 _candidateTextureHeight = 0;
                 _mapCacheRefreshPending = floorIncomplete || incomplete;
+                _floorCacheRefreshPending = floorIncomplete;
                 TextureValid = true;
-                DisposeMapTexture(oldControlTexture, oldControlSurface);
+                // Ping-pong the two render targets instead of allocating and
+                // destroying a full-screen GPU texture for every world frame.
+                if (oldControlTexture != null && !oldControlTexture.Disposed &&
+                    oldControlSurface != null && !oldControlSurface.Disposed &&
+                    oldTextureSize == DisplayArea.Size &&
+                    oldControlTexture.GetTexture2D().Width == candidateWidth &&
+                    oldControlTexture.GetTexture2D().Height == candidateHeight)
+                {
+                    _candidateControlTexture = oldControlTexture;
+                    _candidateControlSurface = oldControlSurface;
+                    _candidateTextureSize = oldTextureSize;
+                    _candidateTextureWidth = candidateWidth;
+                    _candidateTextureHeight = candidateHeight;
+                }
+                else DisposeMapTexture(oldControlTexture, oldControlSurface);
                 ExpireTime = CEnvir.Now + Config.CacheDuration;
             }
 #if ANDROID && BUNDLED_RESOURCE_TEST
@@ -414,7 +440,8 @@ namespace Client.Scenes.Views
             {
                 _cacheDiagnosticCount++;
                 _nextCacheDiagnostic = CEnvir.Now.AddSeconds(2);
-                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame}");
+                double renderMs = (System.Diagnostics.Stopwatch.GetTimestamp() - renderStarted) * 1000d / System.Diagnostics.Stopwatch.Frequency;
+                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame} renderMs={renderMs:F2} renderTargets={_mapTargetAllocations} preloadPending={_mapPreloads.Count}");
             }
 #endif
         }
@@ -461,6 +488,9 @@ namespace Client.Scenes.Views
             DisposeCandidateTexture();
             base.DisposeTexture();
             _mapCacheRefreshPending = false;
+            _floorCacheRefreshPending = false;
+            _mapPreloads.Clear();
+            _preloadCells = null;
         }
 
         /// <summary>
@@ -477,6 +507,69 @@ namespace Client.Scenes.Views
             DrawControl();
 
             OnAfterDraw();
+
+            PrepareNearbyMapTextures();
+        }
+
+        private void PrepareNearbyMapTextures()
+        {
+            // Visible requests have already had first use of the HTTP slots.
+            // Do not add speculative work while the floor or frame is behind.
+            if (_floorCacheRefreshPending || CEnvir.FrameTime > 33 || Cells == null || User == null) return;
+            Point location = User.CurrentLocation;
+            if (_preloadCells != Cells || _preloadSize != Size ||
+                Math.Abs(location.X - _preloadLocation.X) >= 2 || Math.Abs(location.Y - _preloadLocation.Y) >= 2)
+            {
+                _mapPreloads.Clear();
+                _preloadCells = Cells;
+                _preloadSize = Size;
+                _preloadLocation = location;
+                // Near edges first. Four extra cells cover the next few steps;
+                // no whole-map scan or permanent texture residency is needed.
+                for (int margin = 1; margin <= 4 && _mapPreloads.Count < 512; margin++)
+                {
+                    int left = location.X - OffSetX - 4 - margin;
+                    int right = location.X + OffSetX + 4 + margin;
+                    int top = location.Y - OffSetY - 4 - margin;
+                    int bottom = location.Y + OffSetY + 25 + margin;
+                    for (int y = Math.Max(0, top); y <= Math.Min(Height - 1, bottom) && _mapPreloads.Count < 512; y++)
+                        for (int x = Math.Max(0, left); x <= Math.Min(Width - 1, right) && _mapPreloads.Count < 512; x++)
+                        {
+                            bool floorEdge = x % 2 == 0 && y % 2 == 0 && y <= location.Y + OffSetY + 4 + margin &&
+                                (x == left || x == right || y == top || y == location.Y + OffSetY + 4 + margin);
+                            bool objectEdge = x == left || x == right || y == top || y == bottom;
+                            if (!floorEdge && !objectEdge) continue;
+                            Cell cell = Cells[x, y];
+                            if (cell == null) continue;
+                            // Floor draws only as far as +4, objects as far as +25.
+                            if (floorEdge && cell.BackImage != -1)
+                                QueueMapImage(cell.BackFile, (cell.BackImage & 0x1FFFF) - 1, 0, 0, true);
+                            if (!objectEdge) continue;
+                            if (cell.MiddleFile > 0)
+                                QueueMapImage(cell.MiddleFile, cell.MiddleImage - 1, cell.MiddleAnimationFrame, cell.MiddleAnimationTick, false);
+                            if (cell.FrontFile != -1)
+                                QueueMapImage(cell.FrontFile, (cell.FrontImage & 0x7FFF) - 1, cell.FrontAnimationFrame, cell.FrontAnimationTick, false);
+                        }
+                }
+            }
+
+            // A single upload is indivisible; this limits how much additional
+            // work starts, rather than claiming a hard GPU execution deadline.
+            _mapPreloads.Process(item => item.Library.PreloadImage(item.Index), 6, TimeSpan.FromMilliseconds(2));
+        }
+
+        private void QueueMapImage(short fileId, int index, byte frames, byte tick, bool floor)
+        {
+            if (index < 0 || !Libraries.KROrder.TryGetValue(fileId, out LibraryFile file) ||
+                (!floor && file == LibraryFile.Tilesc) || !CEnvir.LibraryList.TryGetValue(file, out MirLibrary library)) return;
+            int animation = frames & 0x0F;
+            if (frames > 0 && frames < 255 && animation > 0)
+            {
+                int frame = Animation / (1 + tick) % animation;
+                _mapPreloads.Add((library, index + frame));
+                _mapPreloads.Add((library, index + (frame + 1) % animation));
+            }
+            else _mapPreloads.Add((library, index));
         }
         protected override void DrawControl()
         {

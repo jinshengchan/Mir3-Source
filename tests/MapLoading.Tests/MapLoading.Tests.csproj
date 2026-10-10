@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Mir3.Mobile/Client/Envir/BudgetedPreloadQueue.cs" Link="BudgetedPreloadQueue.cs" />
+    <Compile Include="../../Mir3.Mobile/Client/Envir/MapImagePixels.cs" Link="MapImagePixels.cs" />
+    <Compile Include="../../Mir3.Mobile/Client/Extentions/DxtUtil.cs" Link="DxtUtil.cs" />
+  </ItemGroup>
+</Project>

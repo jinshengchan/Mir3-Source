@@ -367,6 +367,16 @@ namespace Client.Envir
 
             return image;
         }
+
+        internal bool PreloadImage(int index)
+        {
+            if (!CheckImage(index)) return Loaded;
+            MirImage image = Images[index];
+            if (!HasExpectedTexture(image, ImageType.Image)) return true;
+            if (CreateImage(index, ImageType.Image) == null) return false;
+            image.ExpireTime = CEnvir.Now + Config.CacheDuration;
+            return true;
+        }
         /// <summary>
         /// 检查图片
         /// </summary>
@@ -846,6 +856,7 @@ namespace Client.Envir
         private byte ImageFileStat;
         private readonly object ImageDataLocker = new object();
         private byte[] PendingImageData;
+        private MapImagePixels PendingMapPixels;
         /// <summary>
         /// 坐标
         /// </summary>
@@ -1140,6 +1151,7 @@ namespace Client.Envir
             lock (ImageDataLocker)
             {
                 PendingImageData = null;
+                PendingMapPixels = null;
                 ImageFileStat = 0;
             }
 
@@ -1158,17 +1170,28 @@ namespace Client.Envir
             if (Time.Now < NextSyncTime || LibraryHelper.IsResourceRefreshing(fileName)) return;
 
             byte[] pendingBuffer;
+            MapImagePixels pendingPixels;
             lock (ImageDataLocker)
             {
                 pendingBuffer = PendingImageData;
                 PendingImageData = null;
+                pendingPixels = PendingMapPixels;
+                PendingMapPixels = null;
             }
 
-            if (pendingBuffer != null)
+            if (pendingBuffer != null || pendingPixels != null)
             {
                 try
                 {
-                    ApplyImageData(pendingBuffer);
+                    if (pendingPixels != null)
+                    {
+                        ImageSetData(pendingPixels.Image, true);
+                        if (pendingPixels.Shadow != null) ShadowSetData(pendingPixels.Shadow, true);
+                        else ShadowValid = true;
+                        if (pendingPixels.Overlay != null) OverlaySetData(pendingPixels.Overlay, true);
+                        else OverlayValid = true;
+                    }
+                    else ApplyImageData(pendingBuffer);
                     lock (ImageDataLocker)
                         ImageFileStat = ImageValid ? (byte)3 : (byte)0;
                 }
@@ -1228,10 +1251,19 @@ namespace Client.Envir
                                         byte[] downloadedData = await LibraryHelper.GetImageAsync(fileName, index, ImageDataSize + ShadowDataSize + OverlayDataSize, Position);
                                         if (downloadedData?.Length > 0)
                                         {
+                                            // Decode map payloads while already on the HTTP worker.
+                                            // Only the game thread below creates and uploads textures.
+                                            MapImagePixels pixels = null;
+                                            if (fileName.Replace('\\', '/').IndexOf("/Map Data/", StringComparison.OrdinalIgnoreCase) >= 0)
+                                                pixels = MapImagePixels.Decode(downloadedData, IsZirconVersion,
+                                                    new MapImagePixels.Plane(ImageDataSize, Width, Height, ImageTextureType),
+                                                    new MapImagePixels.Plane(ShadowDataSize, ShadowWidth, ShadowHeight, ShadowTextureType),
+                                                    new MapImagePixels.Plane(OverlayDataSize, OverlayWidth, OverlayHeight, OverlayTextureType));
                                             lock (ImageDataLocker)
                                             {
                                                 if (ImageFileStat != 2) return;
-                                                PendingImageData = downloadedData;
+                                                PendingMapPixels = pixels;
+                                                PendingImageData = pixels == null ? downloadedData : null;
                                                 ImageFileStat = 4; // 4为等待主线程创建纹理
                                             }
                                         }
@@ -1249,6 +1281,8 @@ namespace Client.Envir
                                             ImageFileStat = 0;
                                         NextSyncTime = Time.Now.AddSeconds(1);
                                         CEnvir.SaveError(fileName + "  " + index.ToString() + "\r\n" + ex.ToString());
+                                        if (ex is InvalidDataException || ex is EndOfStreamException)
+                                            LibraryHelper.RequestResourceRefresh(fileName, "worker image decode failed");
                                     }
                                     finally
                                     {
@@ -1316,7 +1350,7 @@ namespace Client.Envir
                 OverlayValid = true;
         }
 
-        private void ImageSetData(byte[] buffer)
+        private void ImageSetData(byte[] buffer, bool decoded = false)
         {
             int w = Width + (4 - Width % 4) % 4;
             int h = Height + (4 - Height % 4) % 4;
@@ -1326,10 +1360,10 @@ namespace Client.Envir
             SurfaceFormat format = ImageTextureType == 1 ? SurfaceFormat.Dxt1 : ImageTextureType == 3 ? SurfaceFormat.Dxt3 : ImageTextureType == 5 ? SurfaceFormat.Dxt5 : SurfaceFormat.Color;
             Image = new Texture(DXManager.Device, w, h, 1, Usage.None, SurfaceFormat.Color, Pool.Managed);
 
-            if (!IsZirconVersion)
+            if (!decoded && !IsZirconVersion)
                 buffer = Decompress(buffer);
 
-            switch (format)
+            switch (decoded ? SurfaceFormat.Color : format)
             {
                 case SurfaceFormat.Dxt1:
                     buffer = DxtUtil.DecompressDxt1(buffer, w, h);
@@ -1389,7 +1423,7 @@ namespace Client.Envir
         //        buffer = null;
         //    } 
         //}
-        private void ShadowSetData(byte[] buffer)
+        private void ShadowSetData(byte[] buffer, bool decoded = false)
         {
             int w = ShadowWidth + (4 - ShadowWidth % 4) % 4;
             int h = ShadowHeight + (4 - ShadowHeight % 4) % 4;
@@ -1399,10 +1433,10 @@ namespace Client.Envir
             SurfaceFormat format = ShadowTextureType == 1 ? SurfaceFormat.Dxt1 : ShadowTextureType == 3 ? SurfaceFormat.Dxt3 : ShadowTextureType == 5 ? SurfaceFormat.Dxt5 : SurfaceFormat.Color;
             Shadow = new Texture(DXManager.Device, w, h, 1, Usage.None, SurfaceFormat.Color, Pool.Managed);
 
-            if (!IsZirconVersion)
+            if (!decoded && !IsZirconVersion)
                 buffer = Decompress(buffer);
 
-            switch (format)
+            switch (decoded ? SurfaceFormat.Color : format)
             {
                 case SurfaceFormat.Dxt1:
                     buffer = DxtUtil.DecompressDxt1(buffer, w, h);
@@ -1450,7 +1484,7 @@ namespace Client.Envir
         //    }
         //}
 
-        private void OverlaySetData(byte[] buffer)
+        private void OverlaySetData(byte[] buffer, bool decoded = false)
         {
             int w = OverlayWidth + (4 - OverlayWidth % 4) % 4;
             int h = OverlayHeight + (4 - OverlayHeight % 4) % 4;
@@ -1460,10 +1494,10 @@ namespace Client.Envir
             SurfaceFormat format = OverlayTextureType == 1 ? SurfaceFormat.Dxt1 : OverlayTextureType == 3 ? SurfaceFormat.Dxt3 : OverlayTextureType == 5 ? SurfaceFormat.Dxt5 : SurfaceFormat.Color;
             Overlay = new Texture(DXManager.Device, w, h, 1, Usage.None, SurfaceFormat.Color, Pool.Managed);
 
-            if (!IsZirconVersion)
+            if (!decoded && !IsZirconVersion)
                 buffer = Decompress(buffer);
 
-            switch (format)
+            switch (decoded ? SurfaceFormat.Color : format)
             {
                 case SurfaceFormat.Dxt1:
                     buffer = DxtUtil.DecompressDxt1(buffer, w, h);

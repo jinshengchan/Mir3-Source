@@ -59,6 +59,7 @@ namespace Client.Envir
         private readonly bool _mapResource;
         internal static long MapImageBoundsChecks { get; private set; }
         internal static long MapImagesOutsideView { get; private set; }
+        internal static bool PreparingNearbyMapImages { get; private set; }
 
         private bool SkipInvisibleMapImage(MirImage image, float x, float y, bool useOffset,
             ImageType type, float zoom, int uiOffsetX)
@@ -389,12 +390,17 @@ namespace Client.Envir
 
         internal bool PreloadImage(int index)
         {
-            if (!CheckImage(index)) return Loaded;
-            MirImage image = Images[index];
-            if (!HasExpectedTexture(image, ImageType.Image)) return true;
-            if (CreateImage(index, ImageType.Image) == null) return false;
-            image.ExpireTime = CEnvir.Now + Config.CacheDuration;
-            return true;
+            PreparingNearbyMapImages = true;
+            try
+            {
+                if (!CheckImage(index)) return Loaded;
+                MirImage image = Images[index];
+                if (!HasExpectedTexture(image, ImageType.Image)) return true;
+                if (CreateImage(index, ImageType.Image) == null) return false;
+                image.ExpireTime = CEnvir.Now + Config.CacheDuration;
+                return true;
+            }
+            finally { PreparingNearbyMapImages = false; }
         }
         /// <summary>
         /// 检查图片
@@ -881,7 +887,9 @@ namespace Client.Envir
         private MapPixelPreparation.Pending _localMapPixels;
         private static readonly MapPixelPreparation LocalMapPreparation = new MapPixelPreparation();
         internal static int LocalMapPreparationCount => LocalMapPreparation.Count;
+        internal static int LocalMapPreloadCount => LocalMapPreparation.SpeculativeCount;
         internal static void CancelLocalMapPreparation() => LocalMapPreparation.CancelAll();
+        internal static void CancelLocalMapPreloads() => LocalMapPreparation.CancelSpeculative();
         /// <summary>
         /// 坐标
         /// </summary>
@@ -1198,6 +1206,7 @@ namespace Client.Envir
 
             if (_localMapPixels != null)
             {
+                if (!MirLibrary.PreparingNearbyMapImages) _localMapPixels.Promote();
                 if (!_localMapPixels.Finished) return;
                 var preparation = _localMapPixels;
                 _localMapPixels = null;
@@ -1260,9 +1269,7 @@ namespace Client.Envir
             //DateTime now = Time.Now;
             lock (reader)
             {
-                reader.BaseStream.Seek(Position, SeekOrigin.Begin);
-                byte[] buffer = reader.ReadBytes(ImageDataSize);
-                var empty = buffer.Length == 0 || buffer[0] == 0;
+                var empty = !LocalImageData.Probe(reader, Position, ImageDataSize, out byte prefix);
                 if (empty)//如果是空数据流
                 {
                     if (Time.Now > NextSyncTime && LibraryHelper.MicroServerActive)  // 0为初始状态
@@ -1352,19 +1359,16 @@ namespace Client.Envir
                         var overlayPlane = new MapImagePixels.Plane(OverlayDataSize, OverlayWidth, OverlayHeight, OverlayTextureType);
                         // Oversized single images retain the existing synchronous
                         // path. Ordinary map pictures use bounded CPU workers.
-                        if (MapPixelPreparation.Estimate(imagePlane) + MapPixelPreparation.Estimate(shadowPlane) + MapPixelPreparation.Estimate(overlayPlane) <= MapPixelPreparation.ByteLimit)
+                        long pixelBytes = MapPixelPreparation.Estimate(imagePlane) + MapPixelPreparation.Estimate(shadowPlane) + MapPixelPreparation.Estimate(overlayPlane);
+                        if (pixelBytes <= MapPixelPreparation.ByteLimit)
                         {
-                            byte[] complete = new byte[ImageDataSize + ShadowDataSize + OverlayDataSize];
-                            Buffer.BlockCopy(buffer, 0, complete, 0, buffer.Length);
-                            byte[] rest = reader.ReadBytes(ShadowDataSize + OverlayDataSize);
-                            if (buffer.Length != ImageDataSize || rest.Length != ShadowDataSize + OverlayDataSize)
-                                throw new EndOfStreamException("Truncated local map image.");
-                            Buffer.BlockCopy(rest, 0, complete, ImageDataSize, rest.Length);
-                            _localMapPixels = LocalMapPreparation.TryStart(complete, IsZirconVersion, imagePlane, shadowPlane, overlayPlane, Time.Now);
+                            if (!LocalMapPreparation.HasCapacity(pixelBytes, Time.Now, MirLibrary.PreparingNearbyMapImages)) return;
+                            byte[] complete = LocalImageData.Read(reader, prefix, checked(ImageDataSize + ShadowDataSize + OverlayDataSize));
+                            _localMapPixels = LocalMapPreparation.TryStart(complete, IsZirconVersion, imagePlane, shadowPlane, overlayPlane, Time.Now, MirLibrary.PreparingNearbyMapImages);
                             return;
                         }
                     }
-                    ApplyImageData(buffer, reader);
+                    ApplyImageData(LocalImageData.Read(reader, prefix, ImageDataSize), reader);
                 }
                 catch (Exception ex)
                 {
@@ -1374,7 +1378,6 @@ namespace Client.Envir
                         LibraryHelper.RequestResourceRefresh(fileName, "cached image decode failed");
                 }
 
-                buffer = null;
             }
             //CEnvir.ImageDelayCounter += (Time.Now - now).Ticks;
         }

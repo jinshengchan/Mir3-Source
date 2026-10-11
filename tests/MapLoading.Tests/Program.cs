@@ -22,6 +22,30 @@ byte[] Deflate(byte[] bytes)
 }
 MapImagePixels.Plane Plane(byte[] bytes, byte type) => new(bytes.Length, 4, 4, type);
 var empty = new MapImagePixels.Plane(0, 0, 0, 0);
+using (var reader = new BinaryReader(new MemoryStream(new byte[] { 99, 0, 0, 0, 1, 2, 3, 4, 5, 6, 77 })))
+{
+    Check(!LocalImageData.Probe(reader, 1, 3, out _) && reader.BaseStream.Position == 2, "Empty slot probe consumes only its first byte");
+    Check(LocalImageData.Probe(reader, 4, 3, out byte prefix), "Populated slot retains nonzero prefix detection");
+    Check(LocalImageData.Read(reader, prefix, 6).SequenceEqual(new byte[] { 1, 2, 3, 4, 5, 6 }) && reader.ReadByte() == 77, "One-buffer read preserves image, shadow, overlay and following slot boundaries");
+    Check(!LocalImageData.Probe(reader, 4, 0, out _) && reader.BaseStream.Position == 4, "Zero-length slot does not read the next image");
+    Check(!LocalImageData.Probe(reader, 100, 3, out _), "EOF probe preserves existing empty-slot behavior");
+    LocalImageData.Probe(reader, 4, 3, out prefix);
+    Reject(() => LocalImageData.Read(reader, prefix, 100), "Reject truncated populated image before decode");
+}
+using (var reader = new BinaryReader(new MemoryStream(new byte[16 * 1024])))
+{
+    // A fixed workload isolates the game-thread allocation cost of slots still
+    // waiting for a request. It does not measure device or HTTP performance.
+    for (int i = 0; i < 10; i++) LocalImageData.Probe(reader, 0, 16 * 1024, out _);
+    long before = GC.GetAllocatedBytesForCurrentThread();
+    for (int i = 0; i < 256; i++) { reader.BaseStream.Position = 0; _ = reader.ReadBytes(16 * 1024); }
+    long oldBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+    before = GC.GetAllocatedBytesForCurrentThread();
+    for (int i = 0; i < 256; i++) LocalImageData.Probe(reader, 0, 16 * 1024, out _);
+    long newBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+    Check(oldBytes >= 4 * 1024 * 1024 && newBytes < 1024, "Empty pending slots no longer allocate full payload buffers each retry");
+    Console.WriteLine($"Empty-slot allocation fixture: old={oldBytes} bytes, new={newBytes} bytes (256 probes)");
+}
 bool Visible(float x, float y, int w = 96, int h = 64, int ox = 0, int oy = 0,
     float zoom = 1, int ui = 0) => MapImageVisibility.Intersects(x, y, w, h, ox, oy, zoom, ui, 1280, 720);
 Check(Visible(600, 300), "Visible floor tile retains its loading path");
@@ -109,6 +133,7 @@ for (int i = 0; i < 32; i++)
     jobs.Add(preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow));
 await Task.WhenAll(jobs.Select(job => job.Task)).WaitAsync(TimeSpan.FromSeconds(5));
 Check(preparation.Count == 32 && preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow) == null, "Bound completed and running CPU preparations together");
+Check(!preparation.HasCapacity(64, DateTime.UtcNow), "Full preparation queue rejects reads before payload allocation");
 preparation.CancelAll();
 Check(preparation.Count == 0 && jobs.All(job => job.Take() == null), "Teleport cancellation discards stale pixels and frees capacity");
 
@@ -133,4 +158,27 @@ preparation.CancelAll();
 await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(5));
 await Task.Delay(20); // Completion callbacks release cancelled workers.
 Check(preparation.Count == 0 && jobs.All(job => job.Cancelled), "Cancel queued CPU work during rapid successive teleports");
+
+jobs.Clear();
+for (int i = 0; i < 8; i++)
+    jobs.Add(preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow, speculative: true));
+await Task.WhenAll(jobs.Select(job => job.Task)).WaitAsync(TimeSpan.FromSeconds(5));
+Check(preparation.SpeculativeCount == 8 && !preparation.HasCapacity(64, DateTime.UtcNow, speculative: true), "Nearby work cannot occupy more than eight preparation slots");
+var visibleJobs = new List<MapPixelPreparation.Pending>();
+for (int i = 0; i < 24; i++) visibleJobs.Add(preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow));
+Check(visibleJobs.All(job => job != null) && preparation.Count == 32, "Visible work retains 24 slots when all nearby slots are occupied");
+await Task.WhenAll(visibleJobs.Select(job => job.Task)).WaitAsync(TimeSpan.FromSeconds(5));
+jobs[0].Promote();
+preparation.CancelSpeculative();
+Check(!jobs[0].Cancelled && Green(jobs[0].Take().Image) && visibleJobs.All(job => !job.Cancelled) && preparation.SpeculativeCount == 0,
+    "Region change cancels unused preloads while preserving promoted and visible pictures");
+foreach (var job in visibleJobs) _ = job.Take();
+Check(preparation.Count == 0, "Reserved visible preparations release after handoff");
+var largeNearby = preparation.TryStart(raw, true, new(raw.Length, 2048, 1024, 32), empty, empty, DateTime.UtcNow, speculative: true);
+try { await largeNearby.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch (InvalidDataException) { }
+Check(!preparation.HasCapacity(64, DateTime.UtcNow, speculative: true) && preparation.HasCapacity(64, DateTime.UtcNow), "Nearby byte budget preserves memory for visible work");
+preparation.CancelSpeculative();
+var expireNearby = preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, now, speculative: true);
+await expireNearby.Task.WaitAsync(TimeSpan.FromSeconds(5));
+Check(preparation.HasCapacity(MapPixelPreparation.ByteLimit, now.AddSeconds(6)) && expireNearby.Cancelled, "Capacity probe releases expired results without needing to allocate a new payload");
 Console.WriteLine($"Passed {passed} map loading checks.");

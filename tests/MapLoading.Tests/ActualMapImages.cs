@@ -36,7 +36,13 @@ internal static class ActualMapImages
                 var overlay = overlayType == 0 ? default : new MapImagePixels.Plane(reader.ReadInt32(), version > 1 ? reader.ReadInt16() : width, version > 1 ? reader.ReadInt16() : height, overlayType);
                 if (position == 0 || (width == 1 && height == 1) || imageLength == 0 || file[position] == 0) continue;
                 int total = checked(image.Length + shadow.Length + overlay.Length);
-                var pixels = MapImagePixels.Decode(file.AsSpan(position, total).ToArray(), false, image, shadow, overlay);
+                using var payloadReader = new BinaryReader(new MemoryStream(file));
+                if (!LocalImageData.Probe(payloadReader, position, imageLength, out byte prefix))
+                    throw new Exception("Nonempty old-bundle image rejected by probe.");
+                byte[] payload = LocalImageData.Read(payloadReader, prefix, total);
+                if (!payload.AsSpan().SequenceEqual(file.AsSpan(position, total)))
+                    throw new Exception("Local reader changed old-bundle image bytes.");
+                var pixels = MapImagePixels.Decode(payload, false, image, shadow, overlay);
                 if (pixels.Image == null || (shadow.Length > 0 && pixels.Shadow == null) || (overlay.Length > 0 && pixels.Overlay == null))
                     throw new Exception("Incomplete decoded planes: " + name + "/" + index);
                 tested++; checkedImages++;

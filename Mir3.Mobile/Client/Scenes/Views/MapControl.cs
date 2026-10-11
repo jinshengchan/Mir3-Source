@@ -448,7 +448,7 @@ namespace Client.Scenes.Views
                 _cacheDiagnosticCount++;
                 _nextCacheDiagnostic = CEnvir.Now.AddSeconds(2);
                 double renderMs = (System.Diagnostics.Stopwatch.GetTimestamp() - renderStarted) * 1000d / System.Diagnostics.Stopwatch.Frequency;
-                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame} renderMs={renderMs:F2} renderTargets={_mapTargetAllocations} preloadPending={_mapPreloads.Count} localDecodePending={MirImage.LocalMapPreparationCount} microActive={Client.Helpers.LibraryHelper.ActiveImageRequests} microCompleted={Client.Helpers.LibraryHelper.CompletedImageRequests} microTotalMs={Client.Helpers.LibraryHelper.ImageRequestMilliseconds} mapBoundsChecks={MirLibrary.MapImageBoundsChecks} mapOutsideView={MirLibrary.MapImagesOutsideView}");
+                Mir3.Mobile.ConnectionDiagnostics.Record($"map-cache published floorPending={floorIncomplete} spritesPending={incomplete} location={User.CurrentLocation} frame={User.FrameIndex} draw={User.DrawFrame} renderMs={renderMs:F2} renderTargets={_mapTargetAllocations} preloadPending={_mapPreloads.Count} localDecodePending={MirImage.LocalMapPreparationCount} localPreloadPending={MirImage.LocalMapPreloadCount} microActive={Client.Helpers.LibraryHelper.ActiveImageRequests} microCompleted={Client.Helpers.LibraryHelper.CompletedImageRequests} microTotalMs={Client.Helpers.LibraryHelper.ImageRequestMilliseconds} mapBoundsChecks={MirLibrary.MapImageBoundsChecks} mapOutsideView={MirLibrary.MapImagesOutsideView}");
             }
 #endif
         }
@@ -497,6 +497,7 @@ namespace Client.Scenes.Views
             _mapCacheRefreshPending = false;
             _floorCacheRefreshPending = false;
             _mapPreloads.Clear();
+            MirImage.CancelLocalMapPreloads();
             _preloadCells = null;
         }
 
@@ -520,14 +521,22 @@ namespace Client.Scenes.Views
 
         private void PrepareNearbyMapTextures()
         {
+            if (Cells == null || User == null) return;
+            Point location = User.CurrentLocation;
+            bool regionChanged = _preloadCells != Cells || _preloadSize != Size ||
+                Math.Abs(location.X - _preloadLocation.X) >= 2 || Math.Abs(location.Y - _preloadLocation.Y) >= 2;
+            if (regionChanged)
+            {
+                // Visible draws above have promoted any useful preparations.
+                // Release the rest even if the new floor is not ready yet.
+                _mapPreloads.Clear();
+                MirImage.CancelLocalMapPreloads();
+            }
             // Visible requests have already had first use of the HTTP slots.
             // Do not compete with missing visible buildings or actor frames.
-            if (_mapCacheRefreshPending || CEnvir.FrameTime > 33 || Cells == null || User == null) return;
-            Point location = User.CurrentLocation;
-            if (_preloadCells != Cells || _preloadSize != Size ||
-                Math.Abs(location.X - _preloadLocation.X) >= 2 || Math.Abs(location.Y - _preloadLocation.Y) >= 2)
+            if (_mapCacheRefreshPending || CEnvir.FrameTime > 33) return;
+            if (regionChanged)
             {
-                _mapPreloads.Clear();
                 _preloadCells = Cells;
                 _preloadSize = Size;
                 _preloadLocation = location;

@@ -1,4 +1,5 @@
 ﻿using Android.Views;
+using Android.Views.InputMethods;
 using Android.Widget;
 using Client.Envir;
 using System;
@@ -96,8 +97,25 @@ namespace Mir3.Droid
             var loginBtn = view.FindViewById<ImageButton>(Resource.Id.login_btn);
             loginBtn.Click -= LoginBtn_Click;
             loginBtn.Click += LoginBtn_Click;
-            view.FindViewById<EditText>(Resource.Id.acc).TextChanged += (sender, args) => _account = ((EditText)sender).Text ?? "";
-            view.FindViewById<EditText>(Resource.Id.pwd).TextChanged += (sender, args) => _password = ((EditText)sender).Text ?? "";
+            var account = view.FindViewById<EditText>(Resource.Id.acc);
+            var password = view.FindViewById<EditText>(Resource.Id.pwd);
+            account.TextChanged += (sender, args) => _account = ((EditText)sender).Text ?? "";
+            password.TextChanged += (sender, args) => _password = ((EditText)sender).Text ?? "";
+            account.EditorAction += (sender, args) =>
+            {
+                if (args.ActionId != ImeAction.Next) return;
+                password.RequestFocus();
+                password.SetSelection(password.Text?.Length ?? 0);
+                imm.ShowSoftInput(password, ShowFlags.Implicit);
+                args.Handled = true;
+            };
+            password.EditorAction += (sender, args) =>
+            {
+                if (args.ActionId != ImeAction.Done) return;
+                imm.HideSoftInputFromWindow(password.WindowToken, HideSoftInputFlags.None);
+                HideNavBars();
+                args.Handled = true;
+            };
             AddView(view);
 
             Account = Config.RememberedEMail;

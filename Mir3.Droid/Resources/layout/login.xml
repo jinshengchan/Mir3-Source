@@ -84,7 +84,11 @@
 				android:layout_width="150dip"
 				android:layout_height="wrap_content"
 				style="@style/edit_main"
-				android:inputType="text" />
+				android:inputType="text"
+                android:hint="@string/id"
+                android:imeOptions="actionNext"
+                android:nextFocusForward="@id/pwd"
+                android:nextFocusDown="@id/pwd" />
 			<TextView
 				android:layout_margin="5dip"
 				android:layout_marginBottom="5dip"
@@ -100,6 +104,7 @@
 				android:layout_height="wrap_content"
 				style="@style/edit_main"
 				android:inputType="textPassword"
+                android:imeOptions="actionDone"
 				android:hint="@string/pwd" />
 			<ImageButton
 				android:id="@+id/login_btn"

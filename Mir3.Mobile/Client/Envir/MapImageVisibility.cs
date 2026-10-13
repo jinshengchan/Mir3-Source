@@ -4,6 +4,14 @@ namespace Client.Envir
     // Keep a pixel of padding so filtering/rounding at screen edges is conservative.
     internal static class MapImageVisibility
     {
+        public static bool IsNearViewport(float x, float y, int width, int height,
+            int targetWidth, int targetHeight, int marginX, int marginY)
+        {
+            return !Intersects(x, y, width, height, 0, 0, 1, 0, targetWidth, targetHeight) &&
+                Intersects(x + marginX, y + marginY, width, height, 0, 0, 1, 0,
+                    targetWidth + marginX * 2, targetHeight + marginY * 2);
+        }
+
         public static bool Intersects(float x, float y, int width, int height,
             int offsetX, int offsetY, float zoom, int uiOffsetX, int targetWidth, int targetHeight)
         {

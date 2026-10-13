@@ -123,6 +123,26 @@ Check(calls.Count == 1, "Do not start another upload after expensive preparation
 queue.Clear(); queue.Add(1);
 Check(queue.Count == 1, "Discard old region when map or destination changes");
 if (args.Length == 1) passed += ActualMapImages.Run(args[0]);
+// Decode a large raw plane with bounded output and no full-size copies.
+byte[] rawLarge = new byte[512 * 512 * 4];
+for (int i = 0; i < rawLarge.Length; i++) rawLarge[i] = (byte)(i * 17);
+byte[] compressedLarge = Deflate(rawLarge);
+var largePlane = new MapImagePixels.Plane(compressedLarge.Length, 512, 512, 32);
+_ = MapImagePixels.Decode(compressedLarge, false, largePlane, empty, empty);
+long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+var largeDecoded = MapImagePixels.Decode(compressedLarge, false, largePlane, empty, empty);
+long allocatedDecode = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+Check(largeDecoded.Image.SequenceEqual(rawLarge), "Streaming raw map decoder preserves every pixel");
+Check(allocatedDecode < rawLarge.Length + 128 * 1024, "Streaming decode allocates approximately one output plane, without growing intermediate buffers");
+Console.WriteLine($"Map decode allocation fixture: output={rawLarge.Length}, allocated={allocatedDecode} bytes");
+byte[] inflatedExtra = Deflate(raw.Concat(new byte[1024 * 1024]).ToArray());
+Reject(() => MapImagePixels.Decode(inflatedExtra, false, new(inflatedExtra.Length, 4, 4, 32), empty, empty), "Reject excessive DEFLATE output at the image boundary");
+byte[] extraDxt = Deflate(greenDxt1.Concat(new byte[1]).ToArray());
+Reject(() => MapImagePixels.Decode(extraDxt, false, new(extraDxt.Length, 4, 4, 1), empty, empty), "Reject extra DXT blocks beyond declared dimensions");
+Check(MapImageVisibility.IsNearViewport(1290, 100, 96, 64, 1280, 720, 192, 128), "Preload the newly culled band directly beside the viewport");
+Check(!MapImageVisibility.IsNearViewport(100, 100, 96, 64, 1280, 720, 192, 128), "Visible tiles keep priority over speculative warming");
+Check(!MapImageVisibility.IsNearViewport(1600, 100, 96, 64, 1280, 720, 192, 128), "Do not widen warming to distant map tiles");
+Check(MapImageVisibility.IsNearViewport(100, 730, 96, 64, 1280, 720, 192, 128), "Warm the near bottom edge as well as horizontal edges");
 var preparation = new MapPixelPreparation();
 var ready = preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow);
 await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -145,7 +165,7 @@ await replacement.Task.WaitAsync(TimeSpan.FromSeconds(5));
 Check(old.Cancelled && preparation.Count == 1 && Green(replacement.Take().Image), "Expire unused completed preparations instead of retaining pixels indefinitely");
 
 var oversized = preparation.TryStart(raw, true, new(raw.Length, 4096, 2048, 32), empty, empty, DateTime.UtcNow);
-try { await oversized.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch (InvalidDataException) { }
+try { await oversized.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch (Exception ex) when (ex is InvalidDataException || ex is EndOfStreamException) { }
 Check(preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, DateTime.UtcNow) == null, "Bound total decoded pixel memory even for a large pending plane");
 Reject(() => oversized.Take(), "Decode errors propagate to game-thread recovery");
 Check(preparation.Count == 0, "Failed preparation releases its memory budget");
@@ -175,7 +195,7 @@ Check(!jobs[0].Cancelled && Green(jobs[0].Take().Image) && visibleJobs.All(job =
 foreach (var job in visibleJobs) _ = job.Take();
 Check(preparation.Count == 0, "Reserved visible preparations release after handoff");
 var largeNearby = preparation.TryStart(raw, true, new(raw.Length, 2048, 1024, 32), empty, empty, DateTime.UtcNow, speculative: true);
-try { await largeNearby.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch (InvalidDataException) { }
+try { await largeNearby.Task.WaitAsync(TimeSpan.FromSeconds(5)); } catch (Exception ex) when (ex is InvalidDataException || ex is EndOfStreamException) { }
 Check(!preparation.HasCapacity(64, DateTime.UtcNow, speculative: true) && preparation.HasCapacity(64, DateTime.UtcNow), "Nearby byte budget preserves memory for visible work");
 preparation.CancelSpeculative();
 var expireNearby = preparation.TryStart(greenDxt1, true, Plane(greenDxt1, 1), empty, empty, now, speculative: true);

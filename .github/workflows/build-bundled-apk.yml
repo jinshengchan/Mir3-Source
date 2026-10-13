@@ -141,7 +141,15 @@ jobs:
           python3 tools/inspect-apk-protocol.py \
             Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk \
             --output .build/APK-PROTOCOL.json --compare .build/REPOSITORY-PROTOCOL.json
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-SIGNATURE.txt
+          cat .build/APK-SIGNATURE.txt
+          python3 - <<'PY'
+          import pathlib
+          report = pathlib.Path('.build/APK-SIGNATURE.txt').read_text()
+          expected = 'cf3fde595340c00308c09809e18ee924b55e84c1805374da51c3b86416b8333e'
+          assert 'Signer #1 certificate SHA-256 digest: ' + expected in report, 'Test signing identity changed'
+          print('::notice title=Fixed test signature::Certificate SHA-256 ' + expected)
+          PY
           "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk > .build/APK-METADATA.txt
           python3 - <<'PY'
           import pathlib
@@ -156,6 +164,7 @@ jobs:
             Mir3.Droid/bin/Release/net8.0-android/android-arm64/com.xj.Mir3.Droid-Signed.apk
             .build/APK-SHA256.txt
             .build/APK-METADATA.txt
+            .build/APK-SIGNATURE.txt
             .build/BUNDLED-INTEGRITY.json
             .build/ORIGINAL-PROTOCOL.json
             .build/REPOSITORY-PROTOCOL.json

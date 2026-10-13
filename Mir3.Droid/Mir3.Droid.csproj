@@ -46,6 +46,12 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(BundledResourceTestBuild)' == 'true'">
     <DefineConstants>$(DefineConstants);BUNDLED_RESOURCE_TEST</DefineConstants>
+    <!-- Intentionally public test identity; never use it for production releases. -->
+    <AndroidKeyStore>True</AndroidKeyStore>
+    <AndroidSigningKeyStore>$(MSBuildThisFileDirectory)../tools/test-signing/mir3-public-test.keystore</AndroidSigningKeyStore>
+    <AndroidSigningKeyAlias>mir3-test</AndroidSigningKeyAlias>
+    <AndroidSigningStorePass>android</AndroidSigningStorePass>
+    <AndroidSigningKeyPass>android</AndroidSigningKeyPass>
   </PropertyGroup>
   <PropertyGroup Condition="'$(RepositoryServerProtocol)' == 'true'">
     <DefineConstants>$(DefineConstants);REPOSITORY_SERVER_PROTOCOL</DefineConstants>

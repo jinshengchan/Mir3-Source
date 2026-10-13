@@ -60,6 +60,7 @@ namespace Client.Helpers
         internal static long ImageRequestMilliseconds => Interlocked.Read(ref _imageRequestMilliseconds);
         private static readonly object ResourceStateSync = new object();
         private static readonly object ResourceDataSync = new object();
+        private static readonly object ResourceFileSync = new object();
         private static readonly Dictionary<string, long> ResourceGeneration = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, DateTime> ResourceRetry = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> ResourcePending = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -103,6 +104,14 @@ namespace Client.Helpers
 
         // File replacement and reader invalidation happen on the game thread.
         public static void ApplyResourceRefreshes()
+        {
+            // Never stall a world frame behind background cache writes.
+            if (ResourceReady.IsEmpty || !Monitor.TryEnter(ResourceFileSync)) return;
+            try { ApplyResourceRefresh(); }
+            finally { Monitor.Exit(ResourceFileSync); }
+        }
+
+        private static void ApplyResourceRefresh()
         {
             if (!ResourceReady.TryDequeue(out var item)) return;
             string temp = null;
@@ -182,46 +191,68 @@ namespace Client.Helpers
         /// </summary>
         static ConcurrentDictionary<string, List<MicroLibraryImage>> SaveImageList { get; set; } = new ConcurrentDictionary<string, List<MicroLibraryImage>>();
 
-        static bool _updating = false;
+        static int _updating;
 
         public static void Process()
         {
-            //Console.WriteLine(Semaphore.CurrentCount);
-            if (_updating)
+            if (Interlocked.CompareExchange(ref _updating, 1, 0) != 0) return;
+            try
             {
-                //Debug.WriteLine("======= updating" + DateTime.Now.ToString("HH:mm:ss.fff"));
-                return;
-            }
-            _updating = true;
+                if ((!MicroServerActive || ExceptionCount >= 5) && Time.Now > RetryTime)
+                {
+                    ExceptionCount = 0;
+                    RetryTime = Time.Now + TimeSpan.FromSeconds(15);
+                    MicroServerActive = CheckServerOnline();
+                }
 
-
-            //重试连接微端
-            if ((!MicroServerActive || ExceptionCount >= 5) && Time.Now > RetryTime)
-            {
-                ExceptionCount = 0;
-                RetryTime = Time.Now + TimeSpan.FromSeconds(15);
-                MicroServerActive = CheckServerOnline();
-            }
-
-            lock (ResourceDataSync)
-            foreach (var x in SaveImageList)
-            {
-                if (System.IO.File.Exists(CEnvir.MobileClientPath + x.Key) && x.Value?.Count > 0)
-                    using (FileStream stream = new FileStream(CEnvir.MobileClientPath + x.Key, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
+                var batches = new List<(string File, long Generation, List<MicroLibraryImage> Images)>();
+                lock (ResourceDataSync)
+                {
+                    foreach (var item in SaveImageList)
                     {
-                        for (int i = 0; i < x.Value.Count; i++)
-                        {
-                            var image = x.Value[i];
-                            stream.Seek(image.Postion, SeekOrigin.Begin);
-                            stream.Write(image.ImageData, 0, image.ImageData.Length);
-                        }
-                        x.Value.Clear();
+                        ResourceGeneration.TryGetValue(item.Key, out var generation);
+                        if (item.Value?.Count > 0) batches.Add((item.Key, generation, item.Value));
                     }
-
+                    SaveImageList.Clear();
+                }
+                foreach (var batch in batches)
+                {
+                    // Serialize replacement with writes, but let completed HTTP
+                    // requests enqueue their pixels while the disk is busy.
+                    lock (ResourceFileSync)
+                    {
+                        lock (ResourceDataSync)
+                        {
+                            ResourceGeneration.TryGetValue(batch.File, out var generation);
+                            if (generation != batch.Generation) continue;
+                        }
+                        try
+                        {
+                            using var stream = new FileStream(CEnvir.MobileClientPath + batch.File,
+                                FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+                            foreach (var image in batch.Images)
+                            {
+                                stream.Seek(image.Postion, SeekOrigin.Begin);
+                                stream.Write(image.ImageData, 0, image.ImageData.Length);
+                            }
+                        }
+                        catch (IOException ex)
+                        {
+                            // Retrying an interrupted write is idempotent. A new
+                            // header generation still discards this old batch.
+                            lock (ResourceDataSync)
+                            {
+                                if (!SaveImageList.TryGetValue(batch.File, out var pending))
+                                    SaveImageList[batch.File] = batch.Images;
+                                else pending.AddRange(batch.Images);
+                            }
+                            CEnvir.SaveError($"Resource cache write failed: {batch.File}: {ex.Message}");
+                        }
+                    }
+                }
             }
-            //Debug.WriteLine($"=======End   {mir.MirImage.FileName} {mir.MirImage.Index} {DateTime.Now.ToString("HH:mm:ss.fff")}");
-
-            _updating = false;
+            catch (Exception ex) { CEnvir.SaveError($"Resource cache maintenance failed: {ex.Message}"); }
+            finally { Volatile.Write(ref _updating, 0); }
         }
         #endregion
 

@@ -540,6 +540,27 @@ namespace Client.Scenes.Views
                 _preloadCells = Cells;
                 _preloadSize = Size;
                 _preloadLocation = location;
+                // Culling now skips tiles just beyond the viewport even when
+                // their cells are inside the draw scan's existing +4 padding.
+                // Warm that inner band first; the outer rings alone miss it.
+                for (int y = Math.Max(0, location.Y - OffSetY - 4); y <= Math.Min(Height - 1, location.Y + OffSetY + 4); y++)
+                    for (int x = Math.Max(0, location.X - OffSetX - 4); x <= Math.Min(Width - 1, location.X + OffSetX + 4); x++)
+                    {
+                        if ((x & 1) != 0 || (y & 1) != 0) continue;
+                        Cell cell = Cells[x, y];
+                        if (cell == null || cell.BackImage == -1 ||
+                            !Libraries.KROrder.TryGetValue(cell.BackFile, out var file) ||
+                            !CEnvir.LibraryList.TryGetValue(file, out var library)) continue;
+                        int index = (cell.BackImage & 0x1FFFF) - 1;
+                        Size imageSize = library.GetSize(index);
+                        if (imageSize.Width <= 0 || imageSize.Height <= 0) continue;
+                        int drawX = (x - location.X + OffSetX) * CellWidth - User.MovingOffSet.X - User.ShakeScreenOffset.X;
+                        int drawY = (y - location.Y + OffSetY) * CellHeight - User.MovingOffSet.Y - User.ShakeScreenOffset.Y;
+                        if (MapImageVisibility.IsNearViewport(drawX, drawY, imageSize.Width, imageSize.Height,
+                            (int)Math.Round(DisplayArea.Width * ZoomRate), (int)Math.Round(DisplayArea.Height * ZoomRate),
+                            CellWidth * 4, CellHeight * 4))
+                            _mapPreloads.Add((library, index));
+                    }
                 // Near edges first. Four extra cells cover the next few steps;
                 // no whole-map scan or permanent texture residency is needed.
                 for (int margin = 1; margin <= 4 && _mapPreloads.Count < 512; margin++)

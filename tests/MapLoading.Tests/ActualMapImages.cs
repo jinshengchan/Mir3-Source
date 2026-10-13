@@ -45,6 +45,27 @@ internal static class ActualMapImages
                 var pixels = MapImagePixels.Decode(payload, false, image, shadow, overlay);
                 if (pixels.Image == null || (shadow.Length > 0 && pixels.Shadow == null) || (overlay.Length > 0 && pixels.Overlay == null))
                     throw new Exception("Incomplete decoded planes: " + name + "/" + index);
+                int planeOffset = 0;
+                foreach (var pair in new[] { (image, pixels.Image), (shadow, pixels.Shadow), (overlay, pixels.Overlay) })
+                {
+                    var plane = pair.Item1;
+                    if (plane.Length == 0) continue;
+                    using var compressed = new MemoryStream(payload, planeOffset, plane.Length, false);
+                    using var deflate = new DeflateStream(compressed, CompressionMode.Decompress);
+                    using var oldBuffer = new MemoryStream();
+                    deflate.CopyTo(oldBuffer);
+                    byte[] legacy = oldBuffer.ToArray();
+                    int w = (plane.Width + 3) / 4 * 4, h = (plane.Height + 3) / 4 * 4;
+                    legacy = plane.Type switch
+                    {
+                        1 => Client.Extentions.DxtUtil.DecompressDxt1(legacy, w, h),
+                        3 => Client.Extentions.DxtUtil.DecompressDxt3(legacy, w, h),
+                        5 => Client.Extentions.DxtUtil.DecompressDxt5(legacy, w, h),
+                        _ => legacy
+                    };
+                    if (!legacy.SequenceEqual(pair.Item2)) throw new Exception("Streaming pixels differ from original decode: " + name + "/" + index);
+                    planeOffset += plane.Length;
+                }
                 tested++; checkedImages++;
             }
             if (tested != 10) throw new Exception("Need ten populated images from " + name);

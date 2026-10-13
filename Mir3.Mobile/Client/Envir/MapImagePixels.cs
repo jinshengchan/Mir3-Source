@@ -37,33 +37,42 @@ namespace Client.Envir
         private static byte[] DecodePlane(byte[] data, ref int offset, Plane plane, bool zircon)
         {
             if (plane.Length == 0) return null;
-            byte[] compressed = new byte[plane.Length];
-            Buffer.BlockCopy(data, offset, compressed, 0, plane.Length);
+            if (plane.Length < 0 || plane.Width <= 0 || plane.Height <= 0)
+                throw new InvalidDataException("Invalid map image plane.");
+            int w = checked((plane.Width + 3) / 4 * 4);
+            int h = checked((plane.Height + 3) / 4 * 4);
+            int pixelLength = checked(w * h * 4);
+            // Read only this plane from the existing payload. Streaming DEFLATE
+            // into exact-sized buffers avoids a copy, a growing output buffer,
+            // and ToArray for every image/shadow/overlay on a first visit.
+            using var input = new MemoryStream(data, offset, plane.Length, false);
             offset += plane.Length;
-            int w = plane.Width + (4 - plane.Width % 4) % 4;
-            int h = plane.Height + (4 - plane.Height % 4) % 4;
-            if (w <= 0 || h <= 0) throw new InvalidDataException("Invalid map image dimensions.");
-            if (!zircon)
-            {
-                using (var input = new MemoryStream(compressed))
-                using (var deflate = new DeflateStream(input, CompressionMode.Decompress))
-                using (var output = new MemoryStream())
-                {
-                    deflate.CopyTo(output);
-                    compressed = output.ToArray();
-                }
-            }
-
+            using var deflate = zircon ? null : new DeflateStream(input, CompressionMode.Decompress);
+            Stream source = zircon ? input : deflate;
             byte[] pixels;
-            switch (plane.Type)
+            if (plane.Type == 1 || plane.Type == 3 || plane.Type == 5)
             {
-                case 1: pixels = DxtUtil.DecompressDxt1(compressed, w, h); break;
-                case 3: pixels = DxtUtil.DecompressDxt3(compressed, w, h); break;
-                case 5: pixels = DxtUtil.DecompressDxt5(compressed, w, h); break;
-                default: pixels = compressed; break;
+                // Keep small DXT block reads in memory instead of making many
+                // tiny calls into DEFLATE. Encoded blocks need only 1/8 or 1/4
+                // of the final RGBA plane, and are bounded by the dimensions.
+                int blockBytes = plane.Type == 1 ? 8 : 16;
+                byte[] blocks = new byte[checked(w / 4 * (h / 4) * blockBytes)];
+                source.ReadExactly(blocks);
+                pixels = plane.Type switch
+                {
+                    1 => DxtUtil.DecompressDxt1(blocks, w, h),
+                    3 => DxtUtil.DecompressDxt3(blocks, w, h),
+                    _ => DxtUtil.DecompressDxt5(blocks, w, h)
+                };
             }
-            if (pixels.Length != checked(w * h * 4))
-                throw new InvalidDataException("Decoded map pixels differ from the texture dimensions.");
+            else
+            {
+                pixels = new byte[pixelLength];
+                source.ReadExactly(pixels);
+            }
+            // Reject oversized inflated data without first allocating all of it.
+            if (source.ReadByte() != -1)
+                throw new InvalidDataException("Decoded map data exceeds the texture dimensions.");
             return pixels;
         }
     }

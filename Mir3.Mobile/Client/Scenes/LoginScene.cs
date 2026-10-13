@@ -173,7 +173,7 @@ namespace Client.Scenes
                 Text = Config.VersionName + "." + Config.VersionCode
 #if BUNDLED_RESOURCE_TEST
 #if REPOSITORY_SERVER_PROTOCOL
-                    + "（仓库协议测试）"
+                    + "（测试 " + Mir3.Mobile.ConnectionDiagnostics.BuildLabel + "）"
 #else
                     + "（新服务器测试）"
 #endif

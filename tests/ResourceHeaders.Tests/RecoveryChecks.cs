@@ -86,7 +86,49 @@ static class RecoveryChecks
             await Wait(() => !LibraryHelper.IsResourceRefreshing("Data/Bad.Zl"));
             if (File.ReadAllText(bad) != "preserve me" || !CEnvir.Errors.Any(x => x.Contains("header refresh failed")))
                 throw new Exception("Bad server header overwrote existing resource.");
-            return 7;
+            LibraryHelper.MicroServerActive = true;
+            LibraryHelper.Process();
+            if (!File.ReadAllBytes(file).Skip(64).SequenceEqual(image!))
+                throw new Exception("Successful downloaded pixels were not saved.");
+            // A failing file must not permanently latch the timer or lose its batch.
+            string late = Path.Combine(root, "Data", "Late.Zl");
+            await LibraryHelper.GetImageAsync("Data/Late.Zl", 0, 16, 64);
+            LibraryHelper.Process();
+            File.WriteAllBytes(late, new byte[80]);
+            LibraryHelper.Process();
+            if (!File.ReadAllBytes(late).Skip(64).SequenceEqual(image!))
+                throw new Exception("Failed cache write did not recover on the next timer tick.");
+            // Hold the disk serialization lock. Downloads must still enqueue
+            // while the background writer waits, and frames must not wait on it.
+            object fileSync = typeof(LibraryHelper).GetField("ResourceFileSync",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!;
+            await LibraryHelper.GetImageAsync("Data/Test.Zl", 0, 16, 64);
+            LibraryHelper.RequestResourceRefresh("Data/Late.Zl", "concurrent cache write");
+            var readyQueue = typeof(LibraryHelper).GetField("ResourceReady",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!;
+            await Wait(() => (int)readyQueue.GetType().GetProperty("Count")!.GetValue(readyQueue)! > 0);
+            Task writer;
+            Monitor.Enter(fileSync);
+            try
+            {
+                writer = Task.Run(LibraryHelper.Process);
+                // Monitor is thread-affine; avoid await while holding it.
+                if (!SpinWait.SpinUntil(() => (int)typeof(LibraryHelper).GetField("_updating",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)! == 1, 2000))
+                    throw new Exception("Cache writer did not start.");
+                var nextImage = LibraryHelper.GetImageAsync("Data/Test.Zl", 0, 16, 64);
+                if (!nextImage.Wait(2000) || nextImage.Result?.Length != 16)
+                    throw new Exception("Disk writer blocked completed image downloads.");
+                var frame = Task.Run(LibraryHelper.ApplyResourceRefreshes);
+                if (!frame.Wait(1000)) throw new Exception("Map update waited for background disk IO.");
+            }
+            finally { Monitor.Exit(fileSync); }
+            await writer.WaitAsync(TimeSpan.FromSeconds(5));
+            LibraryHelper.ApplyResourceRefreshes();
+            if (LibraryHelper.IsResourceRefreshing("Data/Late.Zl") || File.ReadAllBytes(late).Skip(64).Any(b => b != 0))
+                throw new Exception("Deferred refresh did not replace the previous cache generation.");
+            LibraryHelper.Process();
+            return 12;
         }
         finally { server.Stop(); await serving; Directory.Delete(root, true); }
     }

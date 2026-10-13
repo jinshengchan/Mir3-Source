@@ -48,3 +48,39 @@ CI 同时运行现有资源安装、动画、资源头恢复检查，并检查�
 4. 留意多次换图后的内存、闪退，以及长时间后台或熄屏后的连接状态。这里没有承诺 Android 系统一定保留后台进程。
 5. 对比走向新区域、反复传送到已访问区域和第一次传送到远处的加载时间。`connection-debug.txt` 的 `map-cache` 行包含 `renderMs`（地图合成 CPU 提交耗时，不含完整 GPU 执行）、`renderTargets`（地图绘制纹理累计分配数，首次同尺寸刷新通常为 2，后续同尺寸不应持续增加）、`preloadPending`（待预热图片数）、`localDecodePending`（本地准备任务）、`localPreloadPending`（其中未提升的本地预热任务，最多 8 项）、`microActive`（正在请求的图片）、`microCompleted`（累计完成的图片请求）和 `microTotalMs`（累计请求耗时，包含失败请求及客户端处理）。`mapBoundsChecks` 与 `mapOutsideView` 分别计累计检查与跳过的地图图片绘制次数，不是独立图片数或下载数。地图统计有独立的 600 条预算，不再被 5000 条数据包日志挤掉。
 6. 用相同地图和缩放测试四个边缘、屏幕外延伸进来的高建筑、移动和随机传送，检查裁剪没有新增缺图。单元测试覆盖尺寸、正负偏移、缩放、纹理补齐和屏幕外建筑，并比较额外 25 行扫描的矩形覆盖；这不能代替手机 GPU 画面测试。
+
+## 2026-10-13: first-visit loading and reproducible test builds
+
+- Decode map image planes directly from their slice of the existing payload.
+  Raw RGBA uses one exact-sized output buffer; DXT uses a bounded block buffer
+  and the existing decoder. This avoids growing DEFLATE buffers and full-size
+  copies, and rejects excess/truncated expanded data. Real old-bundle pixels are
+  compared byte-for-byte with the previous decoder.
+- Preload floor tiles immediately beyond the viewport, inside the draw scan's
+  existing four-cell padding. The previous outer-ring preloader skipped this
+  band after offscreen culling was added. The same bounded speculative queue,
+  two-millisecond budget and visible-image priority remain in effect.
+- Snapshot pending microclient cache writes under the queue lock, then perform
+  disk IO under a separate replacement lock. Completed image requests can enqueue
+  during writes; game frames defer a header replacement if its disk lock is busy.
+  Failed IO is retried and cannot leave cache maintenance permanently latched.
+- Keep the existing zero-frame/zero-duration overhead-title protection. The new
+  login label and diagnostic header include the build revision, so an old APK can
+  be distinguished without relying on a reused Android version number. Errors
+  have a separate bounded log budget after the packet trace reaches its limit.
+- Bundled test builds use the fixed public test identity documented in
+  `tools/test-signing/README.md`. CI pins the certificate SHA-256 and verifies
+  APK signatures. This key is for testing only, not production publisher trust.
+
+Validation: 106 map checks including 40 actual old-bundle image comparisons,
+28 resource integrity/recovery checks including blocked disk IO and retry,
+12 effect animation checks, and Android Release/arm64 compilation passed.
+A 1 MiB raw-plane fixture allocates 1,048,960 bytes in the new decoder; this is
+host allocation evidence, not a measured phone frame-time improvement.
+
+Phone acceptance: use the delivered signed APK without re-signing; confirm its
+revision on the login screen. Test entering the dojo, returning to town, repeated
+random teleports, and walking into new screen edges. Compare first visits and
+revisits and retain connection-debug.txt after any freeze. First-time missing
+images still require the microclient server; these changes do not guarantee a
+zero-wait transition when the old bundle has no local pixels for the destination.

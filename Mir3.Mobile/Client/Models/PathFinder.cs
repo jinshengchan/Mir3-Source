@@ -3,6 +3,7 @@ using Client.Scenes.Views;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
 
 namespace Client.Models
 {
@@ -176,11 +177,10 @@ namespace Client.Models
 
         public MapControl Map;
 
-        public bool bSearching;
 
         public int MaxSize
         {
-            get { return Map.Width * Map.Height; }
+            get { return Grid.GetLength(0) * Grid.GetLength(1); }
         }
 
         public PathFinder(MapControl map)
@@ -194,12 +194,14 @@ namespace Client.Models
         /// </summary>
         /// <param name="start"></param>
         /// <param name="target"></param>
-        public List<Node> FindPath(Point start, Point target)
+        public List<Node> FindPath(Point start, Point target, CancellationToken cancellationToken = default, MapCells cells = null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            cells ??= Map.Cells;
             //如果起始节点和目标节点相等，返回
             if (start == target) return null;
-            if (!Map.Cells.EmptyCell(target.X, target.Y))
-                target = GetNeighbours(target);
+            if (!cells.EmptyCell(target.X, target.Y))
+                target = GetNeighbours(target, cells);
 
             try
             {
@@ -213,6 +215,7 @@ namespace Client.Models
 
                 while (openSet.Count > 0)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     // 把当前节点从开启列表中移除，并加入到关闭列表中
                     Node currentNode = openSet.RemoveFirst();
                     closedSet.Add(currentNode);
@@ -220,13 +223,13 @@ namespace Client.Models
                     // 如果是目的节点，返回
                     if (currentNode == targetNode)
                     {
-                        return RetracePath(startNode, targetNode);
+                        return RetracePath(startNode, targetNode, cancellationToken);
                     }
                     // 搜索当前节点的所有相邻节点
                     foreach (Node neighbor in GetNeighbours(currentNode))
                     {
                         // 如果节点不可通过或者已在关闭列表中，跳出
-                        if (!Map.Cells.EmptyCell(neighbor.Location.X, neighbor.Location.Y) || closedSet.Contains(neighbor))
+                        if (!cells.EmptyCell(neighbor.Location.X, neighbor.Location.Y) || closedSet.Contains(neighbor))
                             continue;
 
                         int newMovementCostToNeighbor = currentNode.GCost + GetDistance(currentNode, neighbor);
@@ -249,6 +252,7 @@ namespace Client.Models
                     }
                 }
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 //GameScene.Game.ReceiveChat("自动寻路操作出现异常".Lang(), Library.MessageType.Normal);
@@ -262,13 +266,16 @@ namespace Client.Models
         /// </summary>
         /// <param name="startNode"></param>
         /// <param name="endNode"></param>
-        public List<Node> RetracePath(Node startNode, Node endNode)
+        public List<Node> RetracePath(Node startNode, Node endNode, CancellationToken cancellationToken = default)
         {
             List<Node> path = new List<Node>();
             Node currentNode = endNode;
 
             while (currentNode != startNode)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (currentNode == null || path.Count >= MaxSize)
+                    throw new InvalidOperationException("Invalid path parent chain.");
                 path.Add(currentNode);
                 currentNode = currentNode.Parent;
             }
@@ -334,7 +341,7 @@ namespace Client.Models
         /// </summary>
         /// <param name="point"></param>
         /// <returns></returns>
-        private Point GetNeighbours(Point point)
+        private Point GetNeighbours(Point point, MapCells cells)
         {
             for (int x = -1; x <= 1; x++)
             {
@@ -343,7 +350,7 @@ namespace Client.Models
                     if (x == 0 && y == 0) continue;
 
                     Point emp = new Point(point.X + x, point.Y + y);
-                    if (Map.Cells.EmptyCell(emp.X, emp.Y))
+                    if (cells.EmptyCell(emp.X, emp.Y))
                         return emp;
                 }
             }

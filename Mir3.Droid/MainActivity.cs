@@ -363,6 +363,10 @@ namespace Mir3.Droid
 
         protected override void OnResume()
         {
+#if BUNDLED_RESOURCE_TEST
+            ConnectionDiagnostics.Frames.SetPaused(false);
+            ConnectionDiagnostics.Record("lifecycle resume");
+#endif
             ReleaseBackgroundKeepAlive(resuming: true);
             base.OnResume();
             HideNavBars();
@@ -370,6 +374,10 @@ namespace Mir3.Droid
 
         protected override void OnPause()
         {
+#if BUNDLED_RESOURCE_TEST
+            ConnectionDiagnostics.Frames.SetPaused(true);
+            ConnectionDiagnostics.Record("lifecycle pause");
+#endif
             _backgroundConnection = CEnvir.Connection;
             if (_backgroundConnection?.Connected == true && !_backgroundConnection.Disconnecting)
             {
@@ -392,6 +400,15 @@ namespace Mir3.Droid
                 }
             }
             base.OnPause();
+        }
+
+        public override void OnWindowFocusChanged(bool hasFocus)
+        {
+            base.OnWindowFocusChanged(hasFocus);
+#if BUNDLED_RESOURCE_TEST
+            ConnectionDiagnostics.Frames.SetFocused(hasFocus);
+            ConnectionDiagnostics.Record($"lifecycle focus={hasFocus}");
+#endif
         }
 
         protected override void OnDestroy()

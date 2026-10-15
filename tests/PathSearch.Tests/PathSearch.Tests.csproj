@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Mir3.Mobile/Client/Envir/BackgroundPathSearch.cs" Link="BackgroundPathSearch.cs" />
+    <Compile Include="../../Mir3.Mobile/Client/Models/PathFinder.cs" Link="PathFinder.cs" />
+    <Compile Include="../../Mir3.Mobile/FrameProgress.cs" Link="FrameProgress.cs" />
+  </ItemGroup>
+</Project>

@@ -44,6 +44,8 @@ jobs:
         run: dotnet run --project tests/BundledResources.Tests/BundledResources.Tests.csproj
       - name: Test zero-frame title and effect animation
         run: dotnet run --project tests/MirEffects.Tests/MirEffects.Tests.csproj
+      - name: Test path handoff and frame progress diagnostics
+        run: dotnet run --project tests/PathSearch.Tests/PathSearch.Tests.csproj
       - name: Test Android background heartbeat transport
         run: dotnet run --project tests/BackgroundConnection.Tests/BackgroundConnection.Tests.csproj
       - name: Get original APK bundled resources

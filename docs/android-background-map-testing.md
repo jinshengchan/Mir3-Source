@@ -84,3 +84,37 @@ random teleports, and walking into new screen edges. Compare first visits and
 revisits and retain connection-debug.txt after any freeze. First-time missing
 images still require the microclient server; these changes do not guarantee a
 zero-wait transition when the old bundle has no local pixels for the destination.
+
+## 2026-10-15: intermittent emulator stalls
+
+The LDPlayer 9 / Android 9 trace from build 65b64f4 shows a stationary player
+around 14:21:08–14:22:16 while map cache generation, pickup requests and ping
+responses continue. It does not establish that the entire game loop stopped or
+that the emulator's power settings caused the symptom. Existing map-cache logs
+measure cache construction, not successful display of the final frame.
+
+Confirmed code issue addressed: path workers previously changed CurrentPath,
+AutoPath and minimap state while the game thread enumerated/consumed that same
+path. All active requests now use one bounded background search; only
+ProcessInput applies a finished result. Cancellation discards old results,
+searches capture the original map cells and starting location, and a two-second
+cooperative timeout releases unreachable searches. Changed maps/positions reject
+stale results. Cyclic or broken parent chains cannot run without a bound.
+The route algorithm and normal action/server cooldown checks are retained.
+
+A five-second diagnostic observer records update/draw/present counts and ages,
+current phase, lifecycle pause/focus, and the latest main-thread snapshot of
+auto-play, path state, targets, action queue and cooldowns. It does not access
+scene objects or the GPU from its timer, simulate input, or restart the game.
+It has an independent 3,600-record budget after packet logging is exhausted.
+Presentation completion measures return from MonoGame's Present call, not
+proof that the host emulator/compositor displayed the frame on the monitor.
+
+Validation includes actual A-star routes, cancellation during a disconnected
+large search, corrupt parent chains, single-worker ownership, late-result
+discard, timeout/failure retries, and frame observer phase/age/lifecycle checks.
+Device acceptance still requires reproducing the recurring stall in LDPlayer:
+leave auto-play active at least 15 minutes and preserve connection-debug.txt
+including any pause and the mouse click that restores the display. If the
+symptom persists, runtime records distinguish blocked update, blocked Present,
+paused/inactive activity, and a running loop with stalled automation.

@@ -1,6 +1,7 @@
 ﻿using Client.Controls;
 using Client.Envir;
 using Client.Scenes;
+using Client.Models;
 using FontStashSharp;
 using Library;
 using Microsoft.Xna.Framework;
@@ -158,6 +159,9 @@ namespace Mir3.Mobile
 
         protected override void Update(GameTime gameTime)
         {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            ConnectionDiagnostics.Frames.Enter("update");
+#endif
             //if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
             //    Exit();
 
@@ -167,10 +171,28 @@ namespace Mir3.Mobile
             CEnvir.UpdateGame();
             UpdateVirtualStick(gameTime);
             base.Update(gameTime);
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            if (ConnectionDiagnostics.Frames.ShouldSampleState())
+            {
+                var scene = DXControl.ActiveScene;
+                var game = scene as GameScene;
+                var user = game?.User;
+                ConnectionDiagnostics.Frames.SetState(user == null ? $"scene={scene?.GetType().Name}" :
+                    $"scene=GameScene map={game.MapControl.MapInfo?.Index} location={user.CurrentLocation} action={user.CurrentAction} frame={user.FrameIndex} " +
+                    $"auto={Client.Scenes.Configs.BigPatchConfig.AndroidPlayer} path={game.MapControl.AutoPath} pathNodes={game.MapControl.CurrentPath?.Count ?? 0} searching={game.MapControl.PathSearchBusy} " +
+                    $"target={MapObject.TargetObject?.ObjectID ?? 0} magicTarget={MapObject.MagicObject?.ObjectID ?? 0} queue={user.ActionQueue.Count} " +
+                    $"serverWaitMs={Math.Max(0, (user.ServerTime - CEnvir.Now).TotalMilliseconds):F0} actionWaitMs={Math.Max(0, (user.NextActionTime - CEnvir.Now).TotalMilliseconds):F0} " +
+                    $"dead={user.Dead} poison={user.Poison} connected={CEnvir.Connection?.Connected}");
+            }
+            ConnectionDiagnostics.Frames.Updated();
+#endif
         }
 
         protected override void Draw(GameTime gameTime)
         {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            ConnectionDiagnostics.Frames.Enter("draw");
+#endif
             //GraphicsDevice.Clear(Color.CornflowerBlue);
 
             // TODO: Add your drawing code here
@@ -178,6 +200,20 @@ namespace Mir3.Mobile
             CEnvir.RenderGame();
             //RenderVirtualStick();
             base.Draw(gameTime);
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            ConnectionDiagnostics.Frames.Drawn();
+#endif
+        }
+
+        protected override void EndDraw()
+        {
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            ConnectionDiagnostics.Frames.Enter("present");
+#endif
+            base.EndDraw();
+#if ANDROID && BUNDLED_RESOURCE_TEST
+            ConnectionDiagnostics.Frames.Presented();
+#endif
         }
 
         private void InitInputListener()

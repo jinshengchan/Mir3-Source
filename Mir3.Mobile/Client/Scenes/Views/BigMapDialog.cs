@@ -378,25 +378,8 @@ namespace Client.Scenes.Views
             }
 
             //开始寻路
-            if (!GameScene.Game.MapControl.PathFinder.bSearching)
-            {
-                GameScene.Game.MapControl.PathFinder.bSearching = true;
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        GameScene.Game.MapControl.InitCurrentPath(x, y);
-
-                        GameScene.Game.MapControl.PathFinder.bSearching = false;
-                    }
-                    catch
-                    {
-                        GameScene.Game.MapControl.PathFinder.bSearching = false;
-                    }
-                });
-
+            if (GameScene.Game.MapControl.RequestPath(x, y))
                 GameScene.Game.ReceiveChat("BigMap.PathfindingOn".Lang(), MessageType.Hint);
-            }
             else
             {
                 GameScene.Game.ReceiveChat("BigMap.PathfindingNotFinished".Lang(), MessageType.System);

@@ -42,6 +42,7 @@ namespace Client.Scenes.Views
             }
             set
             {
+                if (!value) _pathSearch.Cancel();
                 if (_autoPath == value) return;
                 _autoPath = value;
                 if (!_autoPath)
@@ -84,6 +85,11 @@ namespace Client.Scenes.Views
         private List<Node> _currentPath;
         public static UserObject User => GameScene.Game.User;
         private DateTime pathfindertime;
+        internal bool PathSearchBusy => _pathSearch.IsBusy;
+        private readonly BackgroundPathSearch<List<Node>> _pathSearch = new BackgroundPathSearch<List<Node>>();
+        private MapCells _searchCells;
+        private PathFinder _searchFinder;
+        private Point _searchStart;
 
         /// <summary>
         /// 钓鱼地块
@@ -1448,6 +1454,7 @@ namespace Client.Scenes.Views
         /// </summary>
         public void ProcessInput()
         {
+            ApplyPathSearch();
             if (GameScene.Game.Observer) return;
 
             if (User.Dead || (User.Poison & PoisonType.ThousandBlades) == PoisonType.ThousandBlades || (User.Poison & PoisonType.Paralysis) == PoisonType.Paralysis || (User.Poison & PoisonType.StunnedStrike) == PoisonType.StunnedStrike || User.Buffs.Any(x => x.Type == BuffType.DragonRepulse || x.Type == BuffType.FrostBite)) return;
@@ -1563,23 +1570,7 @@ namespace Client.Scenes.Views
                             {
                                 if (!Functions.InRange(MapObject.TargetObject.CurrentLocation, User.CurrentLocation, Globals.MagicRange - 3))
                                 {
-                                    if (!PathFinder.bSearching)
-                                    {
-                                        PathFinder.bSearching = true;
-                                        Task.Run(() =>
-                                        {
-                                            try
-                                            {
-                                                InitCurrentPath(MapObject.TargetObject.CurrentLocation.X, MapObject.TargetObject.CurrentLocation.Y);
-
-                                                PathFinder.bSearching = false;
-                                            }
-                                            catch
-                                            {
-                                                PathFinder.bSearching = false;
-                                            }
-                                        });
-                                    }
+                                    RequestPath(MapObject.TargetObject.CurrentLocation.X, MapObject.TargetObject.CurrentLocation.Y);
                                 }
                             }
 
@@ -1596,23 +1587,7 @@ namespace Client.Scenes.Views
                         {
                             if (!AutoPath)
                             {
-                                if (!PathFinder.bSearching)
-                                {
-                                    PathFinder.bSearching = true;
-                                    Task.Run(() =>
-                                    {
-                                        try
-                                        {
-                                            InitCurrentPath(MapObject.TargetObject.CurrentLocation.X, MapObject.TargetObject.CurrentLocation.Y);
-
-                                            PathFinder.bSearching = false;
-                                        }
-                                        catch
-                                        {
-                                            PathFinder.bSearching = false;
-                                        }
-                                    });
-                                }
+                                RequestPath(MapObject.TargetObject.CurrentLocation.X, MapObject.TargetObject.CurrentLocation.Y);
                             }
                         }
                     }
@@ -1661,23 +1636,7 @@ namespace Client.Scenes.Views
                         else if (y >= Height) y = Height - 10;
                         if (Cells[x, y].Flag) return;
                         //开始寻路， 启用原子操作，开启异步
-                        if (!PathFinder.bSearching)
-                        {
-                            PathFinder.bSearching = true;
-                            Task.Run(() =>
-                            {
-                                try
-                                {
-                                    InitCurrentPath(x, y);
-
-                                    PathFinder.bSearching = false;
-                                }
-                                catch
-                                {
-                                    PathFinder.bSearching = false;
-                                }
-                            });
-                        }
+                        RequestPath(x, y);
                     }
                 #endregion
             }
@@ -1928,27 +1887,19 @@ namespace Client.Scenes.Views
 
                 if (CurrentPath.Count > 0)
                 {
-
+                    Point next = CurrentPath[0].Location;
+                    // A manual step/server correction can put us outside the
+                    // old route. Replan rather than repeatedly finding no step.
+                    if (Math.Abs(next.X - User.CurrentLocation.X) > 1 || Math.Abs(next.Y - User.CurrentLocation.Y) > 1)
+                    {
+                        RequestPath(CurrentPath.Last().Location.X, CurrentPath.Last().Location.Y);
+                        return;
+                    }
                     MirDirection dir = Functions.DirectionFromPoint(User.CurrentLocation, CurrentPath.First().Location);
                     if (!CanMove(dir, 1))
                     {
                         //如果节点不能移动，重新开始寻路， 启用原子操作，开启异步
-                        if (!PathFinder.bSearching)
-                        {
-                            PathFinder.bSearching = true;
-                            Task.Run(() =>
-                            {
-                                try
-                                {
-                                    InitCurrentPath(CurrentPath.Last().Location.X, CurrentPath.Last().Location.Y);
-                                    PathFinder.bSearching = false;
-                                }
-                                catch
-                                {
-                                    PathFinder.bSearching = false;
-                                }
-                            });
-                        }
+                        RequestPath(CurrentPath.Last().Location.X, CurrentPath.Last().Location.Y);
 
                         return;
                     }
@@ -2005,16 +1956,39 @@ namespace Client.Scenes.Views
                 }
         }
         /// <summary>
-        /// 初始化当前路径
+        /// Submit a path search without changing the currently followed path.
         /// </summary>
-        /// <param name="start"></param>
-        /// <param name="target"></param>
-        public void InitCurrentPath(int start, int target)
+        public bool RequestPath(int x, int y)
         {
-            CurrentPath = PathFinder.FindPath(MapObject.User.CurrentLocation, new Point(start, target));
-            if (CurrentPath == null || CurrentPath.Count == 0) return;
-            AutoPath = true;
+            if (_pathSearch.IsBusy || PathFinder == null || Cells == null || User == null) return false;
+            _searchStart = User.CurrentLocation;
+            _searchCells = Cells;
+            _searchFinder = PathFinder;
+            var start = _searchStart;
+            var cells = _searchCells;
+            var finder = _searchFinder;
+            return _pathSearch.TryStart(token => finder.FindPath(start, new Point(x, y), token, cells), TimeSpan.FromSeconds(2));
         }
+
+        private void ApplyPathSearch()
+        {
+            try
+            {
+                if (!_pathSearch.TryTake(out var result)) return;
+                if (_searchCells != Cells || _searchFinder != PathFinder || User == null || _searchStart != User.CurrentLocation)
+                    return;
+                if (result == null || result.Count == 0)
+                {
+                    AutoPath = false;
+                    pathfindertime = CEnvir.Now.AddMilliseconds(500);
+                    return;
+                }
+                CurrentPath = result;
+                AutoPath = true;
+            }
+            catch (Exception ex) { CEnvir.SaveError("Path search: " + ex); }
+        }
+
         /// <summary>
         /// 跑
         /// </summary>

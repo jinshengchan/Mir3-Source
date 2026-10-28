@@ -107,12 +107,12 @@ namespace Client.Scenes.Views
             {
                 Parent = this,
                 ForeColour = Color.White,
-                Size = new Size(65, 20),
+                Size = new Size(110, 20),
                 AutoSize = false,
                 Outline = true,
                 OutlineColour = Color.Black,
                 DrawFormat = TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter,
-                Location = new Point(200, -50),
+                Text = "延迟 -- ms",
                 IsControl = false,
             };
 
@@ -174,6 +174,7 @@ namespace Client.Scenes.Views
                 IsControl = false,
             };
             NetworkCurrentStatus.Location = new Point(BatteryCurrentStatus.Location.X - NetworkCurrentStatus.Size.Width - 20, 0);
+            PINLabel.Location = new Point(NetworkCurrentStatus.Location.X - PINLabel.Size.Width - 6, 0);
             NetworkCurrentStatus.AfterDraw += (o, e) =>
             {
                 if (NetworkCurrentStatus.Library == null) return;
@@ -214,7 +215,11 @@ namespace Client.Scenes.Views
             if (Time.Now >= FPSTime)
             {
                 FPSLabel.Text = $"FPS:" + $"{CEnvir.FPSCount}";
-                PINLabel.Text = $"PIN:" + $"{CEnvir.Connection?.Ping}";
+                var connection = CEnvir.Connection;
+                bool connected = connection?.Connected == true;
+                int ping = connection?.Ping ?? 0;
+                PINLabel.Text = connected ? $"延迟 {ping} ms" : "延迟 -- ms";
+                PINLabel.ForeColour = !connected ? Color.Gray : ping <= 100 ? Color.Lime : ping <= 200 ? Color.Yellow : Color.Red;
                 CurrentTime.Text = Text = Time.Now.ToString("yyyy/MM/dd HH:mm:ss");
                 FPSTime = Time.Now.AddSeconds(1);
             }

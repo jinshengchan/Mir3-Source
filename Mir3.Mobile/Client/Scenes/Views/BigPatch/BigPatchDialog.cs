@@ -2197,7 +2197,7 @@ namespace Client.Scenes.Views
                     BigPatchConfig.AndroidPlayer);
                 AndroidPlayer.CheckedChanged += (o, e) =>
                 {
-                    if (GameScene.Game.Observer) return;  //如果是观察者 返回
+                    if (GameScene.Game.User == null || GameScene.Game.Observer) return;  //角色未就绪或观察者时返回
 
                     if (GameScene.Game.MapControl.MapInfo.BanAndroidPlayer == true)
                     {
@@ -5733,9 +5733,6 @@ namespace Client.Scenes.Views
 
                 GameScene.Game.PickUpTime = CEnvir.Now.AddMilliseconds(250);  //捡取时间延迟
 
-                CEnvir.Enqueue(new C.PickUp());
-                rt = true;
-
                 int range = GameScene.Game.User.Stats[Stat.PickUpRadius];
 
                 int userPosX = GameScene.Game.User.CurrentLocation.X;
@@ -5771,11 +5768,9 @@ namespace Client.Scenes.Views
                                     itemIdx = item.Item.AddedStats[Stat.ItemIndex];
                                 }
 
-                                if (itemIdx > AutoPick.ItemFilter.Items.Count) continue;
+                                CItemFilterSet iset = AutoPick.ItemFilter.Items.FirstOrDefault(o => o.idx == itemIdx);
 
-                                CItemFilterSet iset = AutoPick.ItemFilter.Items[itemIdx - 1];
-
-                                if (!iset.pick)
+                                if (iset != null && !iset.pick)
                                 {
                                     CEnvir.Enqueue(new C.PickUp
                                     {

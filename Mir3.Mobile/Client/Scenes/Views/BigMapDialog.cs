@@ -57,6 +57,18 @@ namespace Client.Scenes.Views
 
             if (SelectedInfo == null) return;
             Image.Index = SelectedInfo.MiniMap;
+#if Mobile
+            Image.FixedSize = false;
+            Size imageSize = Image.Size;
+            Size borderSize = GetSize(Size.Empty);
+            float imageScale = Math.Min(1F, Math.Min(
+                (GameScene.Game.Size.Width - borderSize.Width - 40) / (float)Math.Max(1, imageSize.Width),
+                (GameScene.Game.Size.Height - borderSize.Height - 40) / (float)Math.Max(1, imageSize.Height)));
+            Image.FixedSize = true;
+            Image.Size = new Size(Math.Max(1, (int)(imageSize.Width * imageScale)), Math.Max(1, (int)(imageSize.Height * imageScale)));
+            CloseButton.Visible = imageScale < 1F;
+            if (CloseButton.Visible) CloseButton.BringToFront();
+#endif
 
             //针对地图右边有黑边 可以用这个切掉
             int cutRight = 0; //改成300就是切掉最右边300个像素
@@ -64,6 +76,9 @@ namespace Client.Scenes.Views
 
             Location = new Point((GameScene.Game.Size.Width - Size.Width) / 2, (GameScene.Game.Size.Height - Size.Height) / 2);
             Opacity = 0F;
+#if Mobile
+            if (CloseButton.Visible) CloseButton.Opacity = 1F;
+#endif
 
             Size size = GetMapSize(SelectedInfo.FileName);
             ScaleX = Image.Size.Width / (float)size.Width;
@@ -300,7 +315,7 @@ namespace Client.Scenes.Views
                 Parent = this,
             };
 
-            Image = new DXImageControl   //图像
+            Image = new BigMapImageControl   //图像
             {
                 Parent = Panel,
                 LibraryFile = LibraryFile.MiniMap,   //读取小地图
@@ -311,6 +326,43 @@ namespace Client.Scenes.Views
             Image.MouseMove += Image_MouseMove;  //显示鼠标指向坐标
             Image.MouseClick += Image_MouseClick;  //地图鼠标单击
             Image.TouchHold += Image_OnCheckHold;
+        }
+
+        private sealed class BigMapImageControl : DXImageControl
+        {
+            protected override void DrawMirTexture()
+            {
+                Size imageSize = Library.GetSize(Index);
+                if (!FixedSize || Size == imageSize)
+                {
+                    base.DrawMirTexture();
+                    return;
+                }
+
+                MirImage image = Library.CreateImage(Index, ImageType.Image);
+                if (image?.Image == null || imageSize.Width == 0 || imageSize.Height == 0) return;
+
+                Rectangle area = Rectangle.Intersect(ActiveScene.DisplayArea, DisplayArea);
+                for (DXControl parent = Parent; parent != null; parent = parent.Parent)
+                    area = Rectangle.Intersect(area, parent.DisplayArea);
+                if (area.IsEmpty) return;
+
+                float scale = Size.Width / (float)imageSize.Width;
+                Rectangle source = Rectangle.FromLTRB(
+                    (int)Math.Ceiling((area.Left - DisplayArea.Left) * (double)imageSize.Width / Size.Width),
+                    (int)Math.Ceiling((area.Top - DisplayArea.Top) * (double)imageSize.Width / Size.Width),
+                    Math.Min(imageSize.Width, (int)Math.Floor((area.Right - DisplayArea.Left) * (double)imageSize.Width / Size.Width)),
+                    Math.Min(imageSize.Height, (int)Math.Floor((area.Bottom - DisplayArea.Top) * (double)imageSize.Width / Size.Width)));
+                if (source.Width <= 0 || source.Height <= 0) return;
+
+                float oldOpacity = DXManager.Opacity;
+                DXManager.SetOpacity(ImageOpacity);
+                DXManager.Sprite.DrawZoom(image.Image, source, Microsoft.Xna.Framework.Vector2.Zero,
+                    new Microsoft.Xna.Framework.Vector2((DisplayArea.X + source.X * scale) * ZoomRate + UI_Offset_X,
+                        (DisplayArea.Y + source.Y * scale) * ZoomRate), ForeColour, scale * ZoomRate);
+                DXManager.SetOpacity(oldOpacity);
+                image.ExpireTime = Time.Now + Config.CacheDuration;
+            }
         }
 
         public override void OnVisibleChanged(bool oValue, bool nValue) //无地图 则隐藏边角
